@@ -2,12 +2,18 @@ package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CSVIndexMatte;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
+import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
+import com.ibrasoft.tcketmanagebackend.model.ticket.event.ScanEvent;
+import com.ibrasoft.tcketmanagebackend.model.ticket.event.ScanEventId;
+import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
+import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import javax.swing.text.html.Option;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +23,8 @@ import java.util.UUID;
 public class TicketService {
 
     private TicketRepository ticketRepository;
+    private ScanEventRepository scanEventRepository;
+    private ZoneRepository zoneRepository;
 
     public void importTicketsFromCSV(List<List<String>> csvData, Event event, CSVIndexMatte matte) {
         for (List<String> row : csvData) {
@@ -29,7 +37,6 @@ public class TicketService {
                     .lastName(lastName)
                     .email(email)
                     .event(event)
-                    .zonePermissions(1L) // Default zone permission; Zone 1 => Main Entrance
                     .build();
             ticketRepository.save(ticket);
         }
@@ -41,7 +48,6 @@ public class TicketService {
                 .firstName(firstName)
                 .lastName(lastName)
                 .email(email)
-                .zonePermissions(1) // Default zone permission; Zone 1 => Main Entrance
                 .build();
         return ticketRepository.save(ticket);
     }
@@ -50,40 +56,35 @@ public class TicketService {
         return ticketRepository.findById(id);
     }
 
-    /**
-     * Add zone permission to a ticket by setting the corresponding bit in the zonePermissions field.
-     * @param ticket The ticket to update.
-     * @param zoneBit The Event Zone ID (bit position) to grant access to. This can be any number from 0 to 63.
-     */
-    public void addZonePermission(Ticket ticket, int zoneBit) {
-        if (zoneBit < 0 || zoneBit > 63) {
-            throw new IllegalArgumentException("Zone bit must be between 0 and 63.");
-        }
-        if (ticket.getEvent().getZones().size() <= zoneBit) {
-            throw new IllegalArgumentException("Zone bit " + zoneBit + " does not exist for this event.");
-        }
-        long currentPermissions = ticket.getZonePermissions();
-        long newPermissions = currentPermissions | (1L << zoneBit);
-        ticket.setZonePermissions(newPermissions);
-        ticketRepository.save(ticket);
+    public void recordTicketScan(Ticket ticket, Zone zone){
+        ScanEvent scanEvent = ScanEvent.builder()
+                .id(new ScanEventId(ticket.getID(), System.currentTimeMillis()))
+                .zone(zone)
+                .build();
+        scanEventRepository.save(scanEvent);
     }
 
-    public void addZonePermission(UUID ticketId, int zoneBit) {
-        Optional<Ticket> optionalTicket = ticketRepository.findById(ticketId);
-        if (optionalTicket.isPresent()) {
-            Ticket ticket = optionalTicket.get();
-            addZonePermission(ticket, zoneBit);
-        } else {
-            throw new IllegalArgumentException("Ticket with ID " + ticketId + " not found.");
-        }
+    public boolean hasZonePermission(Ticket ticket, UUID zoneId) {
+        Zone zone = zoneRepository.findById(zoneId)
+                .orElseThrow(() -> new IllegalArgumentException("Zone not found"));
+        int zoneBitPosition = zone.getBitPosition();
+        int permissionMask = 1 << zoneBitPosition;
+        return (ticket.getTicketType().getZonePermissions() & permissionMask) != 0;
     }
 
-    public boolean hasZonePermission(Ticket ticket, int zoneBit) {
-        if (zoneBit < 0 || zoneBit > 63) {
-            throw new IllegalArgumentException("Zone bit must be between 0 and 63.");
+
+    public void validateTicket(Ticket ticket, Zone zone) {
+        if (!hasZonePermission(ticket, zone.getId())) {
+            throw new SecurityException("Ticket does not have permission to enter zone: " + zone.getName());
         }
-        long currentPermissions = ticket.getZonePermissions();
-        return (currentPermissions & (1L << zoneBit)) != 0;
+        int entryCount = scanEventRepository.countZoneEntriesByTicketId(ticket.getID(), zone.getId());
+        if (entryCount > 0) {
+            throw new SecurityException("Ticket has already been used to enter zone: " + zone.getName());
+        }
+        recordTicketScan(ticket, zone);
     }
 
+    public Page<Ticket> getTicketsByEvent(UUID id, Pageable pageable) {
+        return ticketRepository.findByEvent(id, pageable);
+    }
 }

@@ -10,4 +10,10 @@ import java.util.UUID;
 public class TicketQRData {
     private UUID ticketID;
     private String signature;
+
+    public static TicketQRData fromTicket(Ticket ticket) {
+        return TicketQRData.builder()
+                .ticketID(ticket.getID())
+                .build();
+    }
 }

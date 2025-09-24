@@ -3,6 +3,7 @@ package com.ibrasoft.tcketmanagebackend.model.ticket;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -59,12 +60,10 @@ public class Ticket {
     @NotBlank
     private String email;
 
-    /**
-     * Unsigned long representing zone permissions using bitwise flags.
-     * Each bit in this long corresponds to a specific zone.
-     * 1 => permission granted, 0 => no permission.
-     */
-    private long zonePermissions;
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "ticket_type_id")
+    @NotNull
+    private TicketType ticketType;
 
 
 }
