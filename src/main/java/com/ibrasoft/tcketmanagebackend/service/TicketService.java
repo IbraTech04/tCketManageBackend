@@ -64,6 +64,10 @@ public class TicketService {
         scanEventRepository.save(scanEvent);
     }
 
+    public int getZoneEntryCount(Ticket ticket, Zone zone) {
+        return scanEventRepository.countZoneEntriesByTicketId(ticket.getID(), zone.getId());
+    }
+
     public boolean hasZonePermission(Ticket ticket, UUID zoneId) {
         Zone zone = zoneRepository.findById(zoneId)
                 .orElseThrow(() -> new IllegalArgumentException("Zone not found"));

@@ -2,8 +2,11 @@ package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CSVIndexMatte;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
+import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
+import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
+import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +27,12 @@ class TicketServiceTest {
 
     @Mock
     private TicketRepository ticketRepository;
+
+    @Mock
+    private ScanEventRepository scanEventRepository;
+
+    @Mock
+    private ZoneRepository zoneRepository;
 
     @InjectMocks
     private TicketService ticketService;
@@ -118,5 +127,66 @@ class TicketServiceTest {
         when(ticketRepository.findById(id)).thenReturn(Optional.empty());
         Optional<Ticket> found = ticketService.findTicketById(id);
         assertTrue(found.isEmpty());
+    }
+
+    @Test
+    void testGetZoneEntryCount_ReturnsCorrectCount() {
+        // Given
+        UUID ticketId = UUID.randomUUID();
+        UUID zoneId = UUID.randomUUID();
+        
+        Ticket ticket = Ticket.builder()
+                .ID(ticketId)
+                .firstName("John")
+                .lastName("Doe")
+                .email("john@example.com")
+                .build();
+                
+        Zone zone = Zone.builder()
+                .id(zoneId)
+                .name("VIP Zone")
+                .bitPosition(0)
+                .build();
+        
+        int expectedCount = 3;
+        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId))
+                .thenReturn(expectedCount);
+        
+        // When
+        int actualCount = ticketService.getZoneEntryCount(ticket, zone);
+        
+        // Then
+        assertEquals(expectedCount, actualCount);
+        verify(scanEventRepository, times(1)).countZoneEntriesByTicketId(ticketId, zoneId);
+    }
+
+    @Test
+    void testGetZoneEntryCount_ZeroEntries() {
+        // Given
+        UUID ticketId = UUID.randomUUID();
+        UUID zoneId = UUID.randomUUID();
+        
+        Ticket ticket = Ticket.builder()
+                .ID(ticketId)
+                .firstName("Jane")
+                .lastName("Smith")
+                .email("jane@example.com")
+                .build();
+                
+        Zone zone = Zone.builder()
+                .id(zoneId)
+                .name("General Zone")
+                .bitPosition(1)
+                .build();
+        
+        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId))
+                .thenReturn(0);
+        
+        // When
+        int actualCount = ticketService.getZoneEntryCount(ticket, zone);
+        
+        // Then
+        assertEquals(0, actualCount);
+        verify(scanEventRepository, times(1)).countZoneEntriesByTicketId(ticketId, zoneId);
     }
 }
