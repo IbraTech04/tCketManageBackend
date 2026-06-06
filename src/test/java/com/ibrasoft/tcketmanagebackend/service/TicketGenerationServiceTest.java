@@ -52,7 +52,7 @@ class TicketGenerationServiceTest {
         mockTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("General Admission")
-                .zonePermissions(3L) // Binary: 011 (access to zones 0 and 1)
+                 // Binary: 011 (access to zones 0 and 1)
                 .build();
 
         // Create mock ticket
@@ -131,7 +131,7 @@ class TicketGenerationServiceTest {
         TicketType vipTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("VIP")
-                .zonePermissions(15L) // Binary: 1111 (access to zones 0, 1, 2, 3)
+                 // Binary: 1111 (access to zones 0, 1, 2, 3)
                 .build();
 
         Ticket vipTicket = Ticket.builder()
@@ -165,7 +165,7 @@ class TicketGenerationServiceTest {
         TicketType studentTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("Student")
-                .zonePermissions(1L) // Binary: 001 (access to zone 0 only - Main Entrance)
+                 // Binary: 001 (access to zone 0 only - Main Entrance)
                 .build();
 
         Ticket studentTicket = Ticket.builder()
@@ -225,10 +225,10 @@ class TicketGenerationServiceTest {
     void testCompleteWorkflowWithMultipleTicketTypes() throws Exception {
         // Create different ticket types
         TicketType[] ticketTypes = {
-            TicketType.builder().id(UUID.randomUUID()).name("General Admission").zonePermissions(1L).build(),
-            TicketType.builder().id(UUID.randomUUID()).name("VIP").zonePermissions(15L).build(),
-            TicketType.builder().id(UUID.randomUUID()).name("Student").zonePermissions(1L).build(),
-            TicketType.builder().id(UUID.randomUUID()).name("Press").zonePermissions(7L).build() // Access to zones 0,1,2
+            TicketType.builder().id(UUID.randomUUID()).name("General Admission").build(),
+            TicketType.builder().id(UUID.randomUUID()).name("VIP").build(),
+            TicketType.builder().id(UUID.randomUUID()).name("Student").build(),
+            TicketType.builder().id(UUID.randomUUID()).name("Press").build() // Access to zones 0,1,2
         };
 
         // Test generating tickets for each type
@@ -274,13 +274,13 @@ class TicketGenerationServiceTest {
         TicketType basicType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("Basic")
-                .zonePermissions(1L) // Zone 0 only
+                 // Zone 0 only
                 .build();
 
         TicketType premiumType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("Premium")
-                .zonePermissions(31L) // Zones 0,1,2,3,4
+                 // Zones 0,1,2,3,4
                 .build();
 
         Ticket basicTicket = Ticket.builder()
@@ -340,7 +340,7 @@ class TicketGenerationServiceTest {
 
     private void setupCryptoServiceMocks() throws Exception {
         // Mock the crypto service behavior
-        when(cryptoService.toBase64(any(TicketQRData.class))).thenReturn("mocked-base64-qr-data");
-        doNothing().when(cryptoService).signTicket(any(TicketQRData.class));
+        lenient().when(cryptoService.toBase64(any(TicketQRData.class))).thenReturn("mocked-base64-qr-data");
+        lenient().doNothing().when(cryptoService).signTicket(any(TicketQRData.class));
     }
 }

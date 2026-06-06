@@ -32,14 +32,11 @@ public class Zone {
     @NotNull
     private String description;
 
-    @NotNull
-    private Integer bitPosition;
-
     public static Zone defaultZone() {
         Zone zone = new Zone();
         zone.setId(UUID.randomUUID());
         zone.setName("Default");
-        zone.setBitPosition(0);
+        zone.setDescription("Default entry zone");
         return zone;
     }
 }

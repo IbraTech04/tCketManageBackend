@@ -35,3 +35,6 @@ build/
 ### Keys ###
 src/main/resources/keys/private.pem
 src/main/resources/keys/public.pem
+
+### Local SQLite DB ###
+*.db

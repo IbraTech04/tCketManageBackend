@@ -41,4 +41,12 @@ public class CryptoService {
         String json = objectMapper.writeValueAsString(pojo);
         return Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
+
+    /**
+     * Decodes a base64-encoded JSON QR payload back into a {@link TicketQRData}.
+     */
+    public TicketQRData decode(String base64) throws Exception {
+        byte[] json = Base64.getDecoder().decode(base64);
+        return objectMapper.readValue(json, TicketQRData.class);
+    }
 }

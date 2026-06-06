@@ -31,13 +31,13 @@ class EventTest {
         generalTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("General Admission")
-                .zonePermissions(3L) // Zones 0,1
+                 // Zones 0,1
                 .build();
 
         vipTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("VIP")
-                .zonePermissions(15L) // Zones 0,1,2,3
+                 // Zones 0,1,2,3
                 .build();
     }
 
@@ -104,21 +104,21 @@ class EventTest {
         Zone mainFloor = Zone.builder()
                 .id(UUID.randomUUID())
                 .name("Main Floor")
-                .bitPosition(0)
+                
                 .event(testEvent)
                 .build();
 
         Zone vipSection = Zone.builder()
                 .id(UUID.randomUUID())
                 .name("VIP Section")
-                .bitPosition(1)
+                
                 .event(testEvent)
                 .build();
 
         Zone backstage = Zone.builder()
                 .id(UUID.randomUUID())
                 .name("Backstage")
-                .bitPosition(2)
+                
                 .event(testEvent)
                 .build();
 
@@ -140,11 +140,11 @@ class EventTest {
         assertNotNull(eventWithZones.getZones());
         assertEquals(3, eventWithZones.getZones().size());
         assertTrue(eventWithZones.getZones().stream()
-                .anyMatch(z -> z.getName().equals("Main Floor") && z.getBitPosition() == 0));
+                .anyMatch(z -> z.getName().equals("Main Floor")));
         assertTrue(eventWithZones.getZones().stream()
-                .anyMatch(z -> z.getName().equals("VIP Section") && z.getBitPosition() == 1));
+                .anyMatch(z -> z.getName().equals("VIP Section")));
         assertTrue(eventWithZones.getZones().stream()
-                .anyMatch(z -> z.getName().equals("Backstage") && z.getBitPosition() == 2));
+                .anyMatch(z -> z.getName().equals("Backstage")));
     }
 
     @Test
@@ -157,7 +157,7 @@ class EventTest {
         Zone mainZone = Zone.builder()
                 .id(UUID.randomUUID())
                 .name("Main Area")
-                .bitPosition(0)
+                
                 .event(testEvent)
                 .build();
         zones.add(mainZone);
@@ -200,10 +200,6 @@ class EventTest {
         assertNotNull(completeEvent.getTickets());
         assertEquals(1, completeEvent.getZones().size());
         assertEquals(2, completeEvent.getTickets().size());
-
-        // Verify zone permissions alignment
-        assertEquals(3L, generalTicket.getTicketType().getZonePermissions());
-        assertEquals(15L, vipTicket.getTicketType().getZonePermissions());
     }
 
     @Test
@@ -245,8 +241,8 @@ class EventTest {
         assertFalse(testEvent.getLocation().isEmpty());
         assertFalse(testEvent.getDescription().isEmpty());
 
-        // Test that event time is in the future (for this test)
-        assertTrue(testEvent.getTime().isAfter(LocalDateTime.now().minusDays(1)));
+        // Event time should be a sensibly-set value (stable, not wall-clock dependent)
+        assertTrue(testEvent.getTime().isAfter(LocalDateTime.of(2000, 1, 1, 0, 0)));
     }
 
     @Test

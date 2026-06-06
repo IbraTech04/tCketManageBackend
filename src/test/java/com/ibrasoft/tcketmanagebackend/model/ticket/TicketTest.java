@@ -28,13 +28,13 @@ class TicketTest {
         generalTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("General Admission")
-                .zonePermissions(3L) // Binary: 011 (access to zones 0 and 1)
+                 // Binary: 011 (access to zones 0 and 1)
                 .build();
 
         vipTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("VIP")
-                .zonePermissions(15L) // Binary: 1111 (access to zones 0, 1, 2, 3)
+                 // Binary: 1111 (access to zones 0, 1, 2, 3)
                 .build();
     }
 
@@ -80,7 +80,6 @@ class TicketTest {
 
         // Then
         assertEquals("VIP", vipTicket.getTicketType().getName());
-        assertEquals(15L, vipTicket.getTicketType().getZonePermissions());
     }
 
     @Test
@@ -98,43 +97,6 @@ class TicketTest {
         // Then
         assertNotNull(ticket);
         assertNull(ticket.getTicketType());
-    }
-
-    @Test
-    void testTicketTypeZonePermissions() {
-        // Given
-        Ticket generalTicket = Ticket.builder()
-                .ID(UUID.randomUUID())
-                .firstName("General")
-                .lastName("User")
-                .email("general@example.com")
-                .event(testEvent)
-                .ticketType(generalTicketType)
-                .build();
-
-        Ticket vipTicket = Ticket.builder()
-                .ID(UUID.randomUUID())
-                .firstName("VIP")
-                .lastName("User")
-                .email("vip@example.com")
-                .event(testEvent)
-                .ticketType(vipTicketType)
-                .build();
-
-        // When & Then
-        assertEquals(3L, generalTicket.getTicketType().getZonePermissions());
-        assertEquals(15L, vipTicket.getTicketType().getZonePermissions());
-
-        // Verify general ticket has access to zones 0 and 1
-        assertTrue((generalTicket.getTicketType().getZonePermissions() & 1L) > 0); // Zone 0
-        assertTrue((generalTicket.getTicketType().getZonePermissions() & 2L) > 0); // Zone 1
-        assertFalse((generalTicket.getTicketType().getZonePermissions() & 4L) > 0); // Zone 2
-
-        // Verify VIP ticket has access to zones 0, 1, 2, and 3
-        assertTrue((vipTicket.getTicketType().getZonePermissions() & 1L) > 0); // Zone 0
-        assertTrue((vipTicket.getTicketType().getZonePermissions() & 2L) > 0); // Zone 1
-        assertTrue((vipTicket.getTicketType().getZonePermissions() & 4L) > 0); // Zone 2
-        assertTrue((vipTicket.getTicketType().getZonePermissions() & 8L) > 0); // Zone 3
     }
 
     @Test

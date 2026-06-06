@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
+import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
@@ -32,6 +33,7 @@ class EventServiceTest {
 
     private String eventName;
     private LocalDateTime eventDate;
+    private String eventLocation;
     private String eventDescription;
     private Event mockEvent;
 
@@ -39,6 +41,7 @@ class EventServiceTest {
     void setUp() {
         eventName = "Test Concert";
         eventDate = LocalDateTime.of(2025, 12, 31, 20, 0);
+        eventLocation = "Concert Hall";
         eventDescription = "New Year's Eve Concert";
 
         mockEvent = Event.builder()
@@ -46,37 +49,35 @@ class EventServiceTest {
                 .name(eventName)
                 .time(eventDate)
                 .description(eventDescription)
-                .location("Concert Hall")
-                .zones(List.of(Zone.defaultZone()))
+                .location(eventLocation)
+                .zones(new ArrayList<>(List.of(Zone.defaultZone())))
                 .build();
     }
 
     @Test
     void testCreateEvent_Success() {
-        // Given
         when(eventRepository.save(any(Event.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
-        Event createdEvent = eventService.createEvent(eventName, eventDate, eventDescription);
+        Event createdEvent = eventService.createEvent(eventName, eventDate, eventLocation, eventDescription);
 
-        // Then
         assertNotNull(createdEvent);
         assertEquals(eventName, createdEvent.getName());
         assertEquals(eventDate, createdEvent.getTime());
+        assertEquals(eventLocation, createdEvent.getLocation());
         assertEquals(eventDescription, createdEvent.getDescription());
+        // A default zone is created and linked back to the event
+        assertEquals(1, createdEvent.getZones().size());
+        assertEquals(createdEvent, createdEvent.getZones().get(0).getEvent());
         verify(eventRepository, times(1)).save(any(Event.class));
     }
 
     @Test
     void testGetEventById_Success() {
-        // Given
         UUID eventId = mockEvent.getId();
         when(eventRepository.findById(eventId)).thenReturn(Optional.of(mockEvent));
 
-        // When
         Event foundEvent = eventService.getEventById(eventId);
 
-        // Then
         assertNotNull(foundEvent);
         assertEquals(eventId, foundEvent.getId());
         assertEquals(eventName, foundEvent.getName());
@@ -87,20 +88,17 @@ class EventServiceTest {
     void testGetEventById_NotFound() {
         UUID id = UUID.randomUUID();
         when(eventRepository.findById(id)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> eventService.getEventById(id));
+        assertThrows(ResourceNotFoundException.class, () -> eventService.getEventById(id));
     }
 
     @Test
     void testGetAllEvents_Success() {
-        // Given
         Page<Event> eventPage = new PageImpl<>(Collections.singletonList(mockEvent));
         Pageable pageable = PageRequest.of(0, 10);
         when(eventRepository.findAll(pageable)).thenReturn(eventPage);
 
-        // When
         Page<Event> result = eventService.getAllEvents(pageable);
 
-        // Then
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
         assertEquals(mockEvent.getName(), result.getContent().get(0).getName());
@@ -109,9 +107,8 @@ class EventServiceTest {
 
     @Test
     void testGetZonesByEvent_Success() {
-        // Given an event with two zones
-        Zone z1 = Zone.builder().id(UUID.randomUUID()).name("Main").bitPosition(0).event(mockEvent).build();
-        Zone z2 = Zone.builder().id(UUID.randomUUID()).name("VIP").bitPosition(1).event(mockEvent).build();
+        Zone z1 = Zone.builder().id(UUID.randomUUID()).name("Main").event(mockEvent).build();
+        Zone z2 = Zone.builder().id(UUID.randomUUID()).name("VIP").event(mockEvent).build();
         Event eventWithZones = Event.builder()
                 .id(mockEvent.getId())
                 .name(mockEvent.getName())
@@ -121,36 +118,33 @@ class EventServiceTest {
                 .zones(new ArrayList<>(List.of(z1, z2)))
                 .build();
 
-        // When
         var zones = eventService.getZonesByEvent(eventWithZones);
 
-        // Then
         assertEquals(2, zones.size());
         assertTrue(zones.stream().anyMatch(z -> z.getName().equals("Main")));
         assertTrue(zones.stream().anyMatch(z -> z.getName().equals("VIP")));
     }
 
     @Test
-    void testAddZoneToEvent_AssignsNextBitPosition() {
-        // Given existing event with one zone
+    void testAddZoneToEvent_AddsAndReturnsZone() {
         List<Zone> zones = new ArrayList<>();
-        zones.add(Zone.builder().id(UUID.randomUUID()).name("Entrance").bitPosition(0).build());
+        zones.add(Zone.builder().id(UUID.randomUUID()).name("Entrance").description("d").build());
+        UUID eventId = UUID.randomUUID();
         Event event = Event.builder()
-                .id(UUID.randomUUID())
+                .id(eventId)
                 .name("E1")
                 .time(LocalDateTime.now())
+                .location("L1")
                 .description("D")
                 .zones(zones)
                 .build();
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(event));
+        when(eventRepository.save(any(Event.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
-        eventService.addZoneToEvent(event, "Hall");
+        Zone created = eventService.addZoneToEvent(eventId, "Hall");
 
-        // Then
+        assertEquals("Hall", created.getName());
+        assertEquals(event, created.getEvent());
         assertEquals(2, event.getZones().size());
-        Zone newZone = event.getZones().get(1);
-        assertEquals("Hall", newZone.getName());
-        assertEquals(1, newZone.getBitPosition());
-        assertEquals(event, newZone.getEvent());
     }
 }

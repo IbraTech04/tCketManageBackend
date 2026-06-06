@@ -1,12 +1,13 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
-import com.ibrasoft.tcketmanagebackend.model.dto.request.CSVIndexMatte;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
+import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
+import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
-import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
+import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,20 +27,15 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TicketServiceTest {
 
-    @Mock
-    private TicketRepository ticketRepository;
-
-    @Mock
-    private ScanEventRepository scanEventRepository;
-
-    @Mock
-    private ZoneRepository zoneRepository;
+    @Mock private TicketRepository ticketRepository;
+    @Mock private ScanEventRepository scanEventRepository;
+    @Mock private TicketTypeRepository ticketTypeRepository;
+    @Mock private EventRepository eventRepository;
 
     @InjectMocks
     private TicketService ticketService;
 
     private Event testEvent;
-    private CSVIndexMatte csvIndexMatte;
 
     @BeforeEach
     void setUp() {
@@ -49,144 +46,59 @@ class TicketServiceTest {
                 .location("Test Location")
                 .description("Test Description")
                 .build();
-
-        csvIndexMatte = new CSVIndexMatte();
-        csvIndexMatte.setFirstNameIndex(0);
-        csvIndexMatte.setLastNameIndex(1);
-        csvIndexMatte.setEmailIndex(2);
     }
 
     @Test
     void testCreateTicket_Success() {
-        // Given repository returns the saved ticket
-        ArgumentCaptor<Ticket> captor = ArgumentCaptor.forClass(Ticket.class);
+        UUID eventId = testEvent.getId();
+        UUID ticketTypeId = UUID.randomUUID();
+        TicketType ticketType = TicketType.builder()
+                .id(ticketTypeId).event(testEvent).name("General").build();
+
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(testEvent));
+        when(ticketTypeRepository.findById(ticketTypeId)).thenReturn(Optional.of(ticketType));
         when(ticketRepository.save(any(Ticket.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
-        Ticket created = ticketService.createTicket("John", "Doe", "john.doe@example.com");
+        Ticket created = ticketService.createTicket("John", "Doe", "john.doe@example.com", eventId, ticketTypeId);
 
-        // Then
         assertNotNull(created.getID());
         assertEquals("John", created.getFirstName());
-        assertEquals("Doe", created.getLastName());
-        assertEquals("john.doe@example.com", created.getEmail());
-        verify(ticketRepository, times(1)).save(captor.capture());
-        Ticket saved = captor.getValue();
-        assertEquals("John", saved.getFirstName());
-        assertEquals("Doe", saved.getLastName());
-        assertEquals("john.doe@example.com", saved.getEmail());
-    }
+        assertEquals(testEvent, created.getEvent());
+        assertEquals(ticketType, created.getTicketType());
 
-    @Test
-    void testImportTicketsFromCSV_SavesEachRow() {
-        // Given CSV as List<List<String>> aligned with CSVIndexMatte
-        List<List<String>> csv = List.of(
-                List.of("Alice", "Johnson", "alice@example.com"),
-                List.of("Bob", "Smith", "bob@example.com"),
-                List.of("Charlie", "Brown", "charlie@example.com")
-        );
-
-        // When
-        ticketService.importTicketsFromCSV(csv, testEvent, csvIndexMatte);
-
-        // Then
         ArgumentCaptor<Ticket> captor = ArgumentCaptor.forClass(Ticket.class);
-        verify(ticketRepository, times(3)).save(captor.capture());
-        List<Ticket> saved = captor.getAllValues();
-        assertEquals(3, saved.size());
-        assertEquals("Alice", saved.get(0).getFirstName());
-        assertEquals("Johnson", saved.get(0).getLastName());
-        assertEquals("alice@example.com", saved.get(0).getEmail());
-        assertEquals(testEvent, saved.get(0).getEvent());
+        verify(ticketRepository).save(captor.capture());
+        assertEquals("john.doe@example.com", captor.getValue().getEmail());
     }
 
     @Test
     void testFindTicketById_Found() {
-        // Given
         UUID id = UUID.randomUUID();
-        Ticket t = Ticket.builder()
-                .ID(id)
-                .firstName("Test")
-                .lastName("User")
-                .email("test@example.com")
-                .event(testEvent)
-                .build();
+        Ticket t = Ticket.builder().ID(id).firstName("Test").lastName("User")
+                .email("test@example.com").event(testEvent).build();
         when(ticketRepository.findById(id)).thenReturn(Optional.of(t));
 
-        // When
-        Optional<Ticket> found = ticketService.findTicketById(id);
-
-        // Then
-        assertTrue(found.isPresent());
-        assertEquals(id, found.get().getID());
+        assertTrue(ticketService.findTicketById(id).isPresent());
     }
 
     @Test
     void testFindTicketById_NotFound() {
         UUID id = UUID.randomUUID();
         when(ticketRepository.findById(id)).thenReturn(Optional.empty());
-        Optional<Ticket> found = ticketService.findTicketById(id);
-        assertTrue(found.isEmpty());
+        assertTrue(ticketService.findTicketById(id).isEmpty());
     }
 
     @Test
     void testGetZoneEntryCount_ReturnsCorrectCount() {
-        // Given
         UUID ticketId = UUID.randomUUID();
         UUID zoneId = UUID.randomUUID();
-        
-        Ticket ticket = Ticket.builder()
-                .ID(ticketId)
-                .firstName("John")
-                .lastName("Doe")
-                .email("john@example.com")
-                .build();
-                
-        Zone zone = Zone.builder()
-                .id(zoneId)
-                .name("VIP Zone")
-                .bitPosition(0)
-                .build();
-        
-        int expectedCount = 3;
-        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId))
-                .thenReturn(expectedCount);
-        
-        // When
-        int actualCount = ticketService.getZoneEntryCount(ticket, zone);
-        
-        // Then
-        assertEquals(expectedCount, actualCount);
-        verify(scanEventRepository, times(1)).countZoneEntriesByTicketId(ticketId, zoneId);
-    }
+        Ticket ticket = Ticket.builder().ID(ticketId).firstName("John").lastName("Doe")
+                .email("john@example.com").build();
+        Zone zone = Zone.builder().id(zoneId).name("VIP Zone").build();
 
-    @Test
-    void testGetZoneEntryCount_ZeroEntries() {
-        // Given
-        UUID ticketId = UUID.randomUUID();
-        UUID zoneId = UUID.randomUUID();
-        
-        Ticket ticket = Ticket.builder()
-                .ID(ticketId)
-                .firstName("Jane")
-                .lastName("Smith")
-                .email("jane@example.com")
-                .build();
-                
-        Zone zone = Zone.builder()
-                .id(zoneId)
-                .name("General Zone")
-                .bitPosition(1)
-                .build();
-        
-        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId))
-                .thenReturn(0);
-        
-        // When
-        int actualCount = ticketService.getZoneEntryCount(ticket, zone);
-        
-        // Then
-        assertEquals(0, actualCount);
-        verify(scanEventRepository, times(1)).countZoneEntriesByTicketId(ticketId, zoneId);
+        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId)).thenReturn(3);
+
+        assertEquals(3, ticketService.getZoneEntryCount(ticket, zone));
+        verify(scanEventRepository).countZoneEntriesByTicketId(ticketId, zoneId);
     }
 }

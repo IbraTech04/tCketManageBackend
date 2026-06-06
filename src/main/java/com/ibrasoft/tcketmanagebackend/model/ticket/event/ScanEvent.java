@@ -10,25 +10,35 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Represents a single ticket scan into a zone. Used as:
+ * A) an audit log of scan attempts, and
+ * B) the basis for counting how many times a ticket has entered a zone.
+ *
+ * Uses a surrogate UUID primary key with an index on (ticket_id, zone_id). The previous
+ * design keyed on (ticketId, timestamp-in-millis), which collided when a ticket was scanned
+ * twice within the same millisecond.
+ */
 @Entity
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "scan_events")
-/**
- * This class represents a scan event for tickets.
- * This class will be used as:
- * A) An audit log for ticket scans
- * B) An easy way to track the number of times someone has entered a zone
- *
- * This class will use a composite key of ticket ID and timestamp to ensure uniqueness.
- */
+@Table(name = "scan_events",
+       indexes = @Index(name = "idx_scan_ticket_zone", columnList = "ticket_id, zone_id"))
 public class ScanEvent {
-    @EmbeddedId
-    private ScanEventId id;
+
+    @Id
+    @Builder.Default
+    private UUID id = UUID.randomUUID();
+
+    @Column(name = "ticket_id", nullable = false)
+    private UUID ticketId;
 
     @ManyToOne
     @JoinColumn(name = "zone_id")
     private Zone zone;
+
+    @Column(nullable = false)
+    private LocalDateTime timestamp;
 }

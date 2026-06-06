@@ -1,6 +1,8 @@
 package com.ibrasoft.tcketmanagebackend.model.ticket;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
+import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -60,10 +62,24 @@ public class Ticket {
     @NotBlank
     private String email;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "ticket_type_id")
     @NotNull
     private TicketType ticketType;
 
+    /**
+     * Lifecycle state of the ticket. Defaults to {@code ACTIVE}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private TicketStatus status = TicketStatus.ACTIVE;
 
+    /**
+     * The order this ticket was issued from, if any (tickets are materialized on payment).
+     */
+    @ManyToOne
+    @JoinColumn(name = "order_id")
+    @JsonIgnore
+    private Order order;
 }

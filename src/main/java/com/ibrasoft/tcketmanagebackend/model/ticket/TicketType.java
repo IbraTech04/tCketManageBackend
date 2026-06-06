@@ -1,7 +1,8 @@
 package com.ibrasoft.tcketmanagebackend.model.ticket;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.ibrasoft.tcketmanagebackend.model.event.Event;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -16,15 +21,60 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@Table(name = "ticket_types")
 public class TicketType {
 
     @Id
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Builder.Default
+    private UUID id = UUID.randomUUID();
 
+    /**
+     * The event this ticket type belongs to. Ticket types are event-scoped.
+     */
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "event_id", nullable = false)
+    @JsonIgnore
+    private Event event;
+
+    @Column(nullable = false, length = 100)
     @NotBlank
     private String name;
 
+    @Column(nullable = false, precision = 10, scale = 2)
     @NotNull
-    private Long zonePermissions = 1L; // Default to 1 (access to Zone 0 - Main Entrance)
+    private BigDecimal price;
 
+    @Column(name = "is_active", nullable = false)
+    @NotNull
+    @Builder.Default
+    private Boolean isActive = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /**
+     * Maximum number of seats that may be sold for this ticket type. {@code null} means unlimited.
+     */
+    private Integer capacity;
+
+    /**
+     * Live count of seats consumed (held by pending orders + sold). Available = capacity - reservedCount.
+     */
+    @Column(name = "reserved_count", nullable = false)
+    @Builder.Default
+    private Integer reservedCount = 0;
+
+    /**
+     * Per-zone access grants and entry limits. The presence of an entitlement grants access
+     * to the referenced zone; its {@code maxEntries} caps how many times the ticket may enter.
+     */
+    @OneToMany(mappedBy = "ticketType", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ZoneEntitlement> entitlements = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }
