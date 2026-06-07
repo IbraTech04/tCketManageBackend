@@ -97,9 +97,7 @@ class TicketGenerationServiceTest {
         // Verify that the document has been modified
         assertNotNull(svgDocument);
 
-        // Verify crypto service was called
-        verify(cryptoService, times(1)).signTicket(any(TicketQRData.class));
-        verify(cryptoService, times(1)).toBase64(any(TicketQRData.class));
+        verify(cryptoService, times(1)).sign(any(TicketQRData.class));
 
         System.out.println("Text fields replacement completed successfully");
     }
@@ -261,9 +259,7 @@ class TicketGenerationServiceTest {
             System.out.println("Generated " + tickets[i].getTicketType().getName() + " ticket PNG: " + pngFile.getAbsolutePath());
         }
 
-        // Verify all crypto service calls
-        verify(cryptoService, times(tickets.length)).signTicket(any(TicketQRData.class));
-        verify(cryptoService, times(tickets.length)).toBase64(any(TicketQRData.class));
+        verify(cryptoService, times(tickets.length)).sign(any(TicketQRData.class));
     }
 
     @Test
@@ -319,9 +315,7 @@ class TicketGenerationServiceTest {
         System.out.println("Basic ticket (Zone 0 only): " + basicPng.getAbsolutePath());
         System.out.println("Premium ticket (Zones 0-4): " + premiumPng.getAbsolutePath());
 
-        // Verify crypto service was called for both tickets
-        verify(cryptoService, times(2)).signTicket(any(TicketQRData.class));
-        verify(cryptoService, times(2)).toBase64(any(TicketQRData.class));
+        verify(cryptoService, times(2)).sign(any(TicketQRData.class));
     }
 
     private void loadSvgTemplate() throws Exception {
@@ -339,8 +333,6 @@ class TicketGenerationServiceTest {
     }
 
     private void setupCryptoServiceMocks() throws Exception {
-        // Mock the crypto service behavior
-        lenient().when(cryptoService.toBase64(any(TicketQRData.class))).thenReturn("mocked-base64-qr-data");
-        lenient().doNothing().when(cryptoService).signTicket(any(TicketQRData.class));
+        lenient().when(cryptoService.sign(any(TicketQRData.class))).thenReturn("mocked-qr-token");
     }
 }

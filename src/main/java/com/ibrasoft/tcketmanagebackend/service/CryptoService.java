@@ -1,11 +1,11 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -19,93 +19,62 @@ public class CryptoService {
     private final PublicKey publicKey;
     private final ObjectMapper objectMapper;
 
-    private byte[] canonicalize(TicketQRData ticket) throws Exception {
-        // Ensure deterministic JSON output
-        objectMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
-        return objectMapper.writeValueAsBytes(ticket);
-    }
+    private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
+    private static final Base64.Decoder B64_DEC = Base64.getUrlDecoder();
 
     /**
-     * Signs the full ticket payload using Ed25519.
+     * Serializes and signs a TicketQRData into a JWT-style token.
+     * Format: base64url(JSON) + "." + base64url(Ed25519 signature)
+     * The signature covers the bytes of the base64url payload string, not the raw JSON,
+     * which avoids any JSON canonicalization concerns.
      */
-    public void signTicket(TicketQRData ticket) throws Exception {
-
-        if (ticket.getTicketID() == null || ticket.getEventID() == null) {
+    public String sign(TicketQRData data) throws Exception {
+        if (data.getTicketID() == null || data.getEventID() == null) {
             throw new IllegalArgumentException("Ticket ID and Event ID must be set before signing");
         }
 
-        // Do NOT include signature field in signing input
-        ticket.setSignature(null);
-
-        byte[] payloadBytes = canonicalize(ticket);
+        String payloadB64 = B64.encodeToString(objectMapper.writeValueAsBytes(data));
 
         Signature sig = Signature.getInstance("Ed25519");
         sig.initSign(privateKey);
-        sig.update(payloadBytes);
+        sig.update(payloadB64.getBytes(StandardCharsets.UTF_8));
 
-        String signature = Base64.getEncoder().encodeToString(sig.sign());
-
-        ticket.setSignature(signature);
+        return payloadB64 + "." + B64.encodeToString(sig.sign());
     }
 
     /**
-     * Validates Ed25519 signature against the full ticket payload.
+     * Verifies a token and returns the decoded TicketQRData.
+     * Throws if the token is malformed, tampered, or the signature is invalid.
      */
-    public boolean validateSignature(TicketQRData ticket) {
+    public TicketQRData verify(String token) throws Exception {
+        int dot = token.indexOf('.');
+        if (dot < 0) {
+            throw new IllegalArgumentException("Malformed token: missing '.'");
+        }
 
+        String payloadB64 = token.substring(0, dot);
+        String signatureB64 = token.substring(dot + 1);
+
+        Signature sig = Signature.getInstance("Ed25519");
+        sig.initVerify(publicKey);
+        sig.update(payloadB64.getBytes(StandardCharsets.UTF_8));
+
+        if (!sig.verify(B64_DEC.decode(signatureB64))) {
+            throw new SecurityException("Invalid signature");
+        }
+
+        return objectMapper.readValue(B64_DEC.decode(payloadB64), TicketQRData.class);
+    }
+
+    /**
+     * Returns true if the token has a valid signature, false for any failure.
+     */
+    public boolean isValid(String token) {
         try {
-            String signatureB64 = ticket.getSignature();
-
-            if (signatureB64 == null) return false;
-
-            // Remove signature before verifying payload
-            String originalSignature = ticket.getSignature();
-            ticket.setSignature(null);
-
-            byte[] payloadBytes = canonicalize(ticket);
-
-            Signature sig = Signature.getInstance("Ed25519");
-            sig.initVerify(publicKey);
-            sig.update(payloadBytes);
-
-            boolean valid = sig.verify(Base64.getDecoder().decode(originalSignature));
-
-            // restore object (important for caller)
-            ticket.setSignature(originalSignature);
-
-            return valid;
-
+            verify(token);
+            return true;
         } catch (Exception e) {
             return false;
         }
-    }
-
-    /**
-     * Encodes ticket payload (without signature handling).
-     * Useful if you want raw payload transport.
-     */
-    public String toBase64(Object pojo) throws Exception {
-        byte[] json = objectMapper.writeValueAsBytes(pojo);
-        return Base64.getEncoder().encodeToString(json);
-    }
-
-    /**
-     * Decodes QR payload (base64 JSON → object).
-     */
-    public TicketQRData decode(String base64) throws Exception {
-        byte[] json = Base64.getDecoder().decode(base64);
-        return objectMapper.readValue(json, TicketQRData.class);
-    }
-
-    /**
-     * Optional helper: builds full QR string
-     * FORMAT: base64(payload).base64(signature)
-     */
-    public String buildQr(TicketQRData ticket) throws Exception {
-        signTicket(ticket);
-
-        String payloadB64 = toBase64(ticket);
-
-        return payloadB64 + "." + ticket.getSignature();
     }
 }

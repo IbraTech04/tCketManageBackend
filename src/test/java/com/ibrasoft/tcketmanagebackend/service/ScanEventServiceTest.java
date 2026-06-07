@@ -129,9 +129,8 @@ class ScanEventServiceTest {
 
     @Test
     void scanByQr_validSignature_scans() throws Exception {
-        TicketQRData data = TicketQRData.builder().ticketID(ticketId).signature("sig").build();
-        when(cryptoService.decode("payload")).thenReturn(data);
-        when(cryptoService.validateSignature(data)).thenReturn(true);
+        TicketQRData data = TicketQRData.builder().ticketID(ticketId).eventID(UUID.randomUUID()).build();
+        when(cryptoService.verify("payload")).thenReturn(data);
         when(entitlementRepository.findByTicketType_IdAndZone_Id(typeId, zoneId)).thenReturn(Optional.of(entitlement(3)));
         when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId)).thenReturn(0);
         when(scanEventRepository.save(any(ScanEvent.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -144,9 +143,7 @@ class ScanEventServiceTest {
 
     @Test
     void scanByQr_invalidSignature_denied() throws Exception {
-        TicketQRData data = TicketQRData.builder().ticketID(ticketId).signature("bad").build();
-        when(cryptoService.decode("payload")).thenReturn(data);
-        when(cryptoService.validateSignature(data)).thenReturn(false);
+        when(cryptoService.verify("payload")).thenThrow(new SecurityException("Invalid signature"));
 
         ScanResult result = scanEventService.scanByQr("payload", zoneId);
 

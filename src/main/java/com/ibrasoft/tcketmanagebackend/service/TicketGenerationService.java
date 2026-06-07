@@ -16,7 +16,11 @@ import org.apache.batik.transcoder.image.PNGTranscoder;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.*;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -29,7 +33,8 @@ public class TicketGenerationService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MMM dd, yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
     private static final int DEFAULT_QR_SIZE = 120;
-    private CryptoService cryptoService;
+    private static final String TEMPLATE_PATH = "templates/ticketTemplate.svg";
+    private final CryptoService cryptoService;
 
     private final QRCodeWriter qrCodeWriter = new QRCodeWriter();
 
@@ -53,31 +58,63 @@ public class TicketGenerationService {
      * Convert SVG document to PNG file
      */
     public void convertToPng(Document document, String outputPath, Integer width, Integer height) {
-        try {
-            PNGTranscoder transcoder = new PNGTranscoder();
-
-            if (width != null) {
-                transcoder.addTranscodingHint(PNGTranscoder.KEY_WIDTH, width.floatValue());
-            }
-            if (height != null) {
-                transcoder.addTranscodingHint(PNGTranscoder.KEY_HEIGHT, height.floatValue());
-            }
-
-            TranscoderInput input = new TranscoderInput(document);
-
-            try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
-                TranscoderOutput output = new TranscoderOutput(outputStream);
-                transcoder.transcode(input, output);
-                System.out.println("Successfully converted SVG to PNG: " + outputPath);
-            }
-
+        try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
+            transcodeToPng(document, outputStream, width, height);
+            System.out.println("Successfully converted SVG to PNG: " + outputPath);
         } catch (Exception e) {
             System.err.println("Error converting SVG to PNG: " + e.getMessage());
             throw new RuntimeException("PNG conversion failed", e);
         }
     }
 
+    /**
+     * Render a ticket to PNG bytes, ready to be attached to an email. Loads a fresh copy of the
+     * SVG template, fills in the ticket's fields and QR code, then transcodes to PNG in-memory.
+     */
+    public byte[] renderTicketPng(Ticket ticket, Integer width, Integer height) {
+        try {
+            Document document = loadTemplate();
+            replaceTextFields(document, ticket);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            transcodeToPng(document, outputStream, width, height);
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to render ticket PNG for ticket "
+                    + (ticket != null ? ticket.getID() : "null"), e);
+        }
+    }
+
+    /**
+     * Load the ticket SVG template from the classpath into a fresh, namespace-aware DOM document.
+     * Each render needs its own copy because {@link #replaceTextFields} mutates the document.
+     */
+    public Document loadTemplate() throws Exception {
+        try (InputStream svgStream = getClass().getClassLoader().getResourceAsStream(TEMPLATE_PATH)) {
+            if (svgStream == null) {
+                throw new IllegalStateException("Ticket template not found on classpath: " + TEMPLATE_PATH);
+            }
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            return factory.newDocumentBuilder().parse(svgStream);
+        }
+    }
+
     // Private helper methods
+
+    private void transcodeToPng(Document document, OutputStream outputStream, Integer width, Integer height)
+            throws Exception {
+        PNGTranscoder transcoder = new PNGTranscoder();
+
+        if (width != null) {
+            transcoder.addTranscodingHint(PNGTranscoder.KEY_WIDTH, width.floatValue());
+        }
+        if (height != null) {
+            transcoder.addTranscodingHint(PNGTranscoder.KEY_HEIGHT, height.floatValue());
+        }
+
+        transcoder.transcode(new TranscoderInput(document), new TranscoderOutput(outputStream));
+    }
 
     private BitMatrix generateQRMatrix(String data, int size) throws WriterException {
         Map<EncodeHintType, Object> hints = new HashMap<>();
@@ -128,9 +165,7 @@ public class TicketGenerationService {
         // Clear existing content
         clearElement(qrGroup);
         TicketQRData data = TicketQRData.fromTicket(ticket);
-        cryptoService.signTicket(data);
-        // Generate new QR code
-        String qrData = cryptoService.toBase64(data);
+        String qrData = cryptoService.sign(data);
         BitMatrix bitMatrix = generateQRMatrix(qrData, DEFAULT_QR_SIZE);
 
         // Set transform and attributes

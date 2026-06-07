@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <title th:text="|Your ticket for ${event.name}|">Your ticket for EVENT NAME</title>
+    <!--
+      Email-client-safe skeleton. Layout is table-based and CSS is inlined because clients
+      (Gmail, Outlook) strip <head> styles and don't support flex/grid. The <style> below is
+      progressive enhancement only. Dynamic values use Thymeleaf th:* with literal sample text
+      inside each tag so this file also previews statically in a browser.
+    -->
+    <style>
+        @media only screen and (max-width: 600px) {
+            .tm-container { width: 100% !important; }
+            .tm-px { padding-left: 24px !important; padding-right: 24px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background-color:#fafafa; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+
+<!-- Preheader (hidden preview text) -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#fafafa;"
+     th:text="|Your ticket is attached — present its QR code at sign-in for ${event.name}.|">
+    Your ticket is attached — present its QR code at sign-in.
+</div>
+
+<!-- Outer wrapper -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#fafafa;">
+    <tr>
+        <td align="center" style="padding:24px 12px;">
+
+            <!-- Card -->
+            <table role="presentation" class="tm-container" width="600" cellpadding="0" cellspacing="0" border="0"
+                   style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #e5e7eb; border-radius:16px; overflow:hidden;">
+
+                <!-- ===== Header band (brand gradient) ===== -->
+                <tr>
+                    <td style="background-color:#ea580c; background-image:linear-gradient(135deg,#f97316 0%,#ea580c 50%,#ef4444 100%); padding:28px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td valign="middle" width="44" style="padding-right:14px;">
+                                    <!-- Ticket glyph (from ticketTemplate.svg) -->
+                                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNiAxOHYtNGMwLS41NS40NS0xIDEtMWg2YzAgMS45MyAxLjU3IDMuNSAzLjUgMy41UzIwIDE0LjkzIDIwIDEzaDIyYy41NSAwIDEgLjQ1IDEgMXY0Ii8+PHBhdGggZD0iTTQzIDMwdjRjMCAuNTUtLjQ1IDEtMSAxSDIwYzAtMS45My0xLjU3LTMuNS0zLjUtMy41UzEzIDMyLjA3IDEzIDM0SDdjLS41NSAwLTEtLjQ1LTEtMXYtNCIvPjxwYXRoIGQ9Ik0xNi41IDIwdjgiIHN0cm9rZS1kYXNoYXJyYXk9IjIgNCIvPjwvZz48L3N2Zz4="
+                                         width="40" height="40" alt="tCketManage" style="display:block; border:0;"/>
+                                </td>
+                                <td valign="middle">
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:22px; font-weight:bold; color:#ffffff; line-height:1.1;">tCketManage</div>
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#fed7aa; letter-spacing:0.5px; margin-top:2px;">2025 Pro</div>
+                                </td>
+                                <td valign="middle" align="right">
+                                    <span style="font-family:Arial,Helvetica,sans-serif; font-size:11px; font-weight:bold; color:#ffffff; text-transform:uppercase; letter-spacing:1px; opacity:0.9;">E-Ticket</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- ===== Greeting ===== -->
+                <tr>
+                    <td class="tm-px" style="padding:32px 32px 8px 32px;">
+                        <p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:16px; color:#111827;">
+                            Hi <strong th:text="|${ticket.firstName} ${ticket.lastName}|">ATTENDEE NAME</strong>,
+                        </p>
+                        <p style="margin:12px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.6; color:#6b7280;">
+                            Your ticket is confirmed. The details are below — your scannable ticket is
+                            attached to this email.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- ===== Event card ===== -->
+                <tr>
+                    <td class="tm-px" style="padding:24px 32px 8px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#fafafa; border:1px solid #e5e7eb; border-radius:12px;">
+                            <!-- accent strip -->
+                            <tr>
+                                <td style="height:4px; background-color:#ea580c; background-image:linear-gradient(90deg,#f97316 0%,#ea580c 50%,#ef4444 100%); font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:24px;">
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:20px; font-weight:bold; color:#111827; line-height:1.25;"
+                                         th:text="${event.name}">EVENT NAME</div>
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#6b7280; margin-top:6px; line-height:1.5;"
+                                         th:text="${event.description}">Event description goes here.</div>
+
+                                    <!-- divider -->
+                                    <div style="border-top:1px solid #e5e7eb; margin:20px 0;"></div>
+
+                                    <!-- Date -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
+                                        <tr>
+                                            <td>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:#9ca3af;">Date</div>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111827; margin-top:2px;"
+                                                     th:text="${eventDate}">Friday, March 15, 2025</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <!-- Time -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
+                                        <tr>
+                                            <td>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:#9ca3af;">Time</div>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111827; margin-top:2px;"
+                                                     th:text="${eventTime}">7:30 PM</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <!-- Location -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:0.6px; color:#9ca3af;">Location</div>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111827; margin-top:2px;"
+                                                     th:text="${event.location}">123 Event Street, City, State 12345</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- ===== Ticket summary ===== -->
+                <tr>
+                    <td class="tm-px" style="padding:16px 32px 8px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="border:1px dashed #e5e7eb; border-radius:12px;">
+                            <tr>
+                                <td style="padding:20px 24px;">
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.6px; color:#111827; margin-bottom:14px;">Ticket Holder</div>
+
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td width="50%" valign="top" style="padding-bottom:12px;">
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#9ca3af;">Name</div>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#374151; margin-top:2px;"
+                                                     th:text="|${ticket.firstName} ${ticket.lastName}|">ATTENDEE NAME</div>
+                                            </td>
+                                            <td width="50%" valign="top" style="padding-bottom:12px;">
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#9ca3af;">Type</div>
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#374151; margin-top:2px;"
+                                                     th:text="${ticket.ticketType.name}">General Admission</div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2" valign="top">
+                                                <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#9ca3af;">Ticket ID</div>
+                                                <div style="font-family:'Courier New',Courier,monospace; font-size:13px; color:#6b7280; margin-top:2px; word-break:break-all;"
+                                                     th:text="${ticket.ID}">TKT-ABC123456</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- ===== Attachment callout (SCAN TO VERIFY) ===== -->
+                <tr>
+                    <td class="tm-px" style="padding:16px 32px 8px 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                               style="background-color:#fff7ed; border:1px solid #fed7aa; border-radius:12px;">
+                            <tr>
+                                <td style="padding:20px 24px;">
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:1px; color:#ea580c;">Scan to Verify</div>
+                                    <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.6; color:#6b7280; margin-top:6px;">
+                                        Your ticket is attached to this email. Open the attachment and present
+                                        its QR code at sign-in — it's all you need to get in.
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- ===== Footer ===== -->
+                <tr>
+                    <td style="padding:24px 32px 28px 32px; text-align:center;">
+                        <div style="border-top:1px solid #e5e7eb; margin-bottom:16px;"></div>
+                        <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#9ca3af;">
+                            Powered by tCketManage 2025
+                        </div>
+                    </td>
+                </tr>
+
+            </table>
+            <!-- /Card -->
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

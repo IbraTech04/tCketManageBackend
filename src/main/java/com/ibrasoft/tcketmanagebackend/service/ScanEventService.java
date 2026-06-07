@@ -46,11 +46,8 @@ public class ScanEventService {
     public ScanResult scanByQr(String qrPayload, UUID zoneId) {
         TicketQRData data;
         try {
-            data = cryptoService.decode(qrPayload);
+            data = cryptoService.verify(qrPayload);
         } catch (Exception e) {
-            return new ScanResult(false, "Malformed ticket payload", null);
-        }
-        if (data.getSignature() == null || !cryptoService.validateSignature(data)) {
             return new ScanResult(false, "Invalid or tampered ticket", null);
         }
         return scanTicket(data.getTicketID(), zoneId);
