@@ -1,8 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
-import com.ibrasoft.tcketmanagebackend.model.order.Order;
-import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
@@ -14,7 +12,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -84,23 +81,13 @@ class TicketEmailDeliveryIT {
                                 .status(TicketStatus.ACTIVE)
                                 .build();
 
-                Order order = Order.builder()
-                                .id(UUID.randomUUID())
-                                .buyerEmail(RECIPIENT)
-                                .event(event)
-                                .status(OrderStatus.PAID)
-                                .providerId("test")
-                                .referenceCode("TEST-" + suffix)
-                                .amountTotal(ticketType.getPrice())
-                                .build();
-
                 // 3. Generate the QR ticket PNG (intermediate sanity check)
                 byte[] ticketPng = ticketGenerationService.renderTicketPng(ticket, 720, 1280);
                 assertNotNull(ticketPng, "Ticket PNG should be rendered");
                 assertTrue(ticketPng.length > 0, "Ticket PNG should not be empty");
 
                 // 4 + 5. Render the HTML email and send it with the ticket attached
-                emailService.sendTickets(order, List.of(ticket));
+                assertTrue(emailService.sendTicket(ticket), "Ticket email should send successfully");
 
                 System.out.printf("Sent ticket %s (%d byte PNG) to %s%n", ticket.getID(), ticketPng.length, RECIPIENT);
         }

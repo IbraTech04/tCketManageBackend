@@ -1,7 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
-import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AllArgsConstructor;
@@ -17,7 +16,6 @@ import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Locale;
 
 /**
@@ -48,13 +46,7 @@ public class SmtpEmailService implements EmailService {
     private final EmailProperties properties;
 
     @Override
-    public void sendTickets(Order order, List<Ticket> tickets) {
-        for (Ticket ticket : tickets) {
-            sendTicket(ticket);
-        }
-    }
-
-    private void sendTicket(Ticket ticket) {
+    public boolean sendTicket(Ticket ticket) {
         try {
             byte[] ticketPng = ticketGenerationService.renderTicketPng(ticket, TICKET_WIDTH, TICKET_HEIGHT);
             String body = renderBody(ticket);
@@ -69,9 +61,12 @@ public class SmtpEmailService implements EmailService {
 
             mailSender.send(message);
             log.info("Sent ticket {} to {}", ticket.getID(), ticket.getEmail());
+            return true;
         } catch (Exception e) {
-            // Non-fatal: the ticket is already issued; log and move on so other tickets still send.
+            // Non-fatal: the ticket is already issued; log and report failure so the caller leaves
+            // lastTicketSent untouched (and a later "send missing"/resend can retry it).
             log.error("Failed to send ticket {} to {}", ticket.getID(), ticket.getEmail(), e);
+            return false;
         }
     }
 

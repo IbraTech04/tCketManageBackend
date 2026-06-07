@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -18,6 +19,9 @@ public class TicketResponse {
     private UUID eventId;
     private TicketTypeResponse ticketType;
 
+    /** When the ticket was last successfully emailed, or {@code null} if it has never been sent. */
+    private Instant lastTicketSent;
+
     public static TicketResponse from(Ticket ticket) {
         return TicketResponse.builder()
                 .id(ticket.getID())
@@ -26,6 +30,7 @@ public class TicketResponse {
                 .email(ticket.getEmail())
                 .eventId(ticket.getEvent() != null ? ticket.getEvent().getId() : null)
                 .ticketType(ticket.getTicketType() != null ? TicketTypeResponse.from(ticket.getTicketType()) : null)
+                .lastTicketSent(ticket.getLastTicketSent())
                 .build();
     }
 }

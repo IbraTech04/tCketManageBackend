@@ -5,29 +5,27 @@ import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
-import com.ibrasoft.tcketmanagebackend.service.EmailService;
+import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Turns a paid order into issued tickets — one {@code ACTIVE} {@link Ticket} per {@link OrderItem}
- * seat — then hands them to {@link EmailService} for delivery.
+ * seat — then hands each to {@link TicketDeliveryService} for delivery (which also stamps
+ * {@code lastTicketSent} so fulfilled tickets aren't later flagged as never-sent).
  */
 @Service
 @AllArgsConstructor
 public class FulfillmentService {
 
     private final TicketRepository ticketRepository;
-    private final EmailService emailService;
+    private final TicketDeliveryService ticketDeliveryService;
 
     @Transactional
     public void fulfill(Order order) {
-        List<Ticket> tickets = new ArrayList<>();
         for (OrderItem item : order.getItems()) {
             Ticket ticket = Ticket.builder()
                     .ID(UUID.randomUUID())
@@ -39,8 +37,7 @@ public class FulfillmentService {
                     .status(TicketStatus.ACTIVE)
                     .order(order)
                     .build();
-            tickets.add(ticketRepository.save(ticket));
+            ticketDeliveryService.send(ticketRepository.save(ticket));
         }
-        emailService.sendTickets(order, tickets);
     }
 }

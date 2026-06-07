@@ -14,6 +14,13 @@ public class CreateTicketRequest {
     private UUID ticketTypeId;
 
     /**
+     * When {@code true}, the ticket is emailed to its holder immediately on creation (and its
+     * {@code lastTicketSent} stamped). Defaults to {@code false} so admins can issue silent/comp
+     * tickets; operators can still deliver later via the resend / send-missing endpoints.
+     */
+    private boolean sendEmail = false;
+
+    /**
      * Default constructor for Jackson deserialization
      */
     public CreateTicketRequest() {}
@@ -67,11 +74,19 @@ public class CreateTicketRequest {
         this.eventId = eventId; 
     }
     
-    public UUID getTicketTypeId() { 
-        return ticketTypeId; 
+    public UUID getTicketTypeId() {
+        return ticketTypeId;
     }
-    
-    public void setTicketTypeId(UUID ticketTypeId) { 
-        this.ticketTypeId = ticketTypeId; 
+
+    public void setTicketTypeId(UUID ticketTypeId) {
+        this.ticketTypeId = ticketTypeId;
+    }
+
+    public boolean isSendEmail() {
+        return sendEmail;
+    }
+
+    public void setSendEmail(boolean sendEmail) {
+        this.sendEmail = sendEmail;
     }
 }

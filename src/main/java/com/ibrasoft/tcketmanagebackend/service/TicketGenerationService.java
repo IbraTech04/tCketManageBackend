@@ -202,6 +202,7 @@ public class TicketGenerationService {
         mappings.put("lastName", safeString(ticket.getLastName()));
         mappings.put("email", safeString(ticket.getEmail()));
         mappings.put("fullName", createFullName(ticket));
+        mappings.put("ticketType", ticket.getTicketType() != null ? safeString(ticket.getTicketType().getName()) : "");
 
         if (ticket.getEvent() != null) {
             mappings.put("eventName", safeString(ticket.getEvent().getName()));

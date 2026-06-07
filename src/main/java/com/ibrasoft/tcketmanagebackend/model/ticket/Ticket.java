@@ -13,6 +13,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.Email;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -82,4 +83,11 @@ public class Ticket {
     @JoinColumn(name = "order_id")
     @JsonIgnore
     private Order order;
+
+    /**
+     * When this ticket was last successfully emailed to its holder, or {@code null} if it has never
+     * been sent. Drives the "send missing" delivery flow and lets operators see delivery status.
+     */
+    @Column(name = "last_ticket_sent")
+    private Instant lastTicketSent;
 }

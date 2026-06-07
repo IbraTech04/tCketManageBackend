@@ -5,6 +5,8 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
+import com.ibrasoft.tcketmanagebackend.security.AdminGuard;
+import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
 import com.ibrasoft.tcketmanagebackend.service.TicketService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TicketController {
     private final TicketService ticketService;
+    private final TicketDeliveryService ticketDeliveryService;
+    private final AdminGuard adminGuard;
 
     @GetMapping("/{id}")
     public TicketResponse getTicketById(@PathVariable UUID id) {
@@ -36,6 +40,11 @@ public class TicketController {
         Ticket created = ticketService.createTicket(
             request.getFirstName(), request.getLastName(), request.getEmail(),
             request.getEventId(), request.getTicketTypeId());
+        // Opt-in delivery: emails the ticket and stamps lastTicketSent on the same instance, so the
+        // response reflects delivery. Left silent (and "missing") by default for comp tickets.
+        if (request.isSendEmail()) {
+            ticketDeliveryService.send(created);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(TicketResponse.from(created));
     }
 
@@ -49,5 +58,17 @@ public class TicketController {
         return ticketService.deleteTicket(id)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
+    }
+
+    /**
+     * Re-emails a single ticket to its holder (e.g. a manually issued ticket the attendee never
+     * received). Returns the ticket with its refreshed {@code lastTicketSent}.
+     */
+    @PostMapping("/{id}/resend")
+    public TicketResponse resendTicket(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
+        adminGuard.require(adminToken);
+        return TicketResponse.from(ticketDeliveryService.resend(id));
     }
 }

@@ -9,6 +9,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateEventRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.FullEventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ImportResult;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketDeliveryResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketTypeResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ZoneResponse;
@@ -16,6 +17,7 @@ import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.security.AdminGuard;
 import com.ibrasoft.tcketmanagebackend.service.EventService;
 import com.ibrasoft.tcketmanagebackend.service.ImportService;
+import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
 import com.ibrasoft.tcketmanagebackend.service.TicketService;
 import com.ibrasoft.tcketmanagebackend.service.TicketTypeService;
 import lombok.AllArgsConstructor;
@@ -44,6 +46,7 @@ public class EventController {
     private final TicketService ticketService;
     private final TicketTypeService ticketTypeService;
     private final ImportService importService;
+    private final TicketDeliveryService ticketDeliveryService;
     private final AdminGuard adminGuard;
 
     @GetMapping
@@ -135,5 +138,31 @@ public class EventController {
         ImportResult result = importService.importAttendees(id, file, config);
         HttpStatus status = result.getErrors().isEmpty() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY;
         return ResponseEntity.status(status).body(result);
+    }
+
+    // --- Bulk ticket delivery ---
+
+    /**
+     * Re-emails every ticket for the event (typically after a CSV import, where tickets are created
+     * without sending). Destructive in volume — the frontend gates this behind explicit confirmation.
+     */
+    @PostMapping("/{id}/tickets/resend")
+    public TicketDeliveryResponse resendAllTickets(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
+        adminGuard.require(adminToken);
+        return ticketDeliveryService.resendAll(id);
+    }
+
+    /**
+     * Emails only the event's tickets that have never been successfully sent
+     * ({@code lastTicketSent == null}) — a safe "fill the gaps" complement to a full resend.
+     */
+    @PostMapping("/{id}/tickets/send-missing")
+    public TicketDeliveryResponse sendMissingTickets(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
+        adminGuard.require(adminToken);
+        return ticketDeliveryService.sendMissing(id);
     }
 }
