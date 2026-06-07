@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +23,13 @@ public class OrderController {
     private final OrderService orderService;
     private final PaymentConfirmationService confirmationService;
     private final AdminGuard adminGuard;
+
+    @GetMapping
+    public List<OrderResponse> getOrders(@RequestParam UUID eventId) {
+        return orderService.getOrdersByEvent(eventId).stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
 
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {

@@ -2,8 +2,11 @@ package com.ibrasoft.tcketmanagebackend.exception;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,6 +34,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), req, null);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, "Request conflicts with existing data or a database constraint", req, null);
+    }
+
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<ErrorResponse> handleSecurity(SecurityException ex, HttpServletRequest req) {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), req, null);
@@ -39,6 +47,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, null);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "Malformed or unreadable request body", req, null);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest req) {
+        Map<String, String> fieldErrors = new HashMap<>();
+        ex.getConstraintViolations().forEach(cv ->
+            fieldErrors.put(cv.getPropertyPath().toString(), cv.getMessage()));
+        return build(HttpStatus.BAD_REQUEST, "Validation failed", req, fieldErrors);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

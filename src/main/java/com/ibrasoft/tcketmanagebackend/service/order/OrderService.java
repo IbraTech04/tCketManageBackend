@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -107,6 +108,14 @@ public class OrderService {
     public Order getOrder(UUID id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersByEvent(UUID eventId) {
+        if (!eventRepository.existsById(eventId)) {
+            throw new ResourceNotFoundException("Event not found: " + eventId);
+        }
+        return orderRepository.findByEventId(eventId);
     }
 
     public Order cancelOrder(UUID id) {

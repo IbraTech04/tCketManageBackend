@@ -19,7 +19,6 @@ public class ZoneEntitlementRequest {
     @NotNull
     private UUID zoneId;
 
-    @NotNull
     @Min(1)
     private Integer maxEntries;
 }

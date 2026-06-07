@@ -20,4 +20,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Optional<Order> findByProviderRef(String providerRef);
 
     List<Order> findByStatusAndExpiresAtBefore(OrderStatus status, LocalDateTime cutoff);
+
+    List<Order> findByEventId(UUID eventId);
 }

@@ -1,6 +1,7 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanOutcome;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanResult;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ValidationResult;
 import com.ibrasoft.tcketmanagebackend.model.event.Zone;
@@ -69,7 +70,7 @@ class ScanEventServiceTest {
         lenient().when(zoneRepository.findById(zoneId)).thenReturn(Optional.of(zone));
     }
 
-    private ZoneEntitlement entitlement(int maxEntries) {
+    private ZoneEntitlement entitlement(Integer maxEntries) {
         return ZoneEntitlement.builder().ticketType(ticketType).zone(zone).maxEntries(maxEntries).build();
     }
 
@@ -79,8 +80,7 @@ class ScanEventServiceTest {
 
         ScanResult result = scanEventService.scanTicket(ticketId, zoneId);
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().toLowerCase().contains("access"));
+        assertEquals(ScanOutcome.NO_ZONE_ENTITLEMENT, result.getOutcome());
         verify(scanEventRepository, never()).save(any());
     }
 
@@ -92,7 +92,7 @@ class ScanEventServiceTest {
 
         ScanResult result = scanEventService.scanTicket(ticketId, zoneId);
 
-        assertTrue(result.isSuccess());
+        assertEquals(ScanOutcome.SUCCESS, result.getOutcome());
         assertNotNull(result.getScanEvent());
         verify(scanEventRepository, times(1)).save(any(ScanEvent.class));
     }
@@ -104,8 +104,7 @@ class ScanEventServiceTest {
 
         ScanResult result = scanEventService.scanTicket(ticketId, zoneId);
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().toLowerCase().contains("limit"));
+        assertEquals(ScanOutcome.ENTRY_LIMIT_REACHED, result.getOutcome());
         verify(scanEventRepository, never()).save(any());
     }
 
@@ -117,6 +116,18 @@ class ScanEventServiceTest {
         ValidationResult result = scanEventService.validateTicketForZone(ticketId, zoneId);
 
         assertTrue(result.isValid());
+    }
+
+    @Test
+    void scan_succeedsWithUnlimitedEntitlement() {
+        when(entitlementRepository.findByTicketType_IdAndZone_Id(typeId, zoneId)).thenReturn(Optional.of(entitlement(null)));
+        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId)).thenReturn(99);
+        when(scanEventRepository.save(any(ScanEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ScanResult result = scanEventService.scanTicket(ticketId, zoneId);
+
+        assertEquals(ScanOutcome.SUCCESS, result.getOutcome());
+        verify(scanEventRepository, times(1)).save(any(ScanEvent.class));
     }
 
     @Test
@@ -137,7 +148,7 @@ class ScanEventServiceTest {
 
         ScanResult result = scanEventService.scanByQr("payload", zoneId);
 
-        assertTrue(result.isSuccess());
+        assertEquals(ScanOutcome.SUCCESS, result.getOutcome());
         verify(scanEventRepository, times(1)).save(any(ScanEvent.class));
     }
 
@@ -147,8 +158,7 @@ class ScanEventServiceTest {
 
         ScanResult result = scanEventService.scanByQr("payload", zoneId);
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getMessage().toLowerCase().contains("invalid"));
+        assertEquals(ScanOutcome.INVALID_QR, result.getOutcome());
         verify(scanEventRepository, never()).save(any());
     }
 }

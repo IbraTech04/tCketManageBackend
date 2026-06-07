@@ -2,10 +2,12 @@ package com.ibrasoft.tcketmanagebackend.controller;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.AddZoneRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateEventRequest;
+import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateFullEventRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateTicketTypeRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.ImportConfig;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateEventRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EventResponse;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.FullEventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ImportResult;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketTypeResponse;
@@ -57,8 +59,19 @@ public class EventController {
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {
         Event created = eventService.createEvent(
-            request.getName(), request.getTime(), request.getLocation(), request.getDescription());
+            request.getName(), request.getTime().toLocalDateTime(), request.getLocation(), request.getDescription());
         return ResponseEntity.status(HttpStatus.CREATED).body(EventResponse.from(created));
+    }
+
+    /**
+     * Atomically creates an entire event — metadata, zones, and ticket types with their per-zone
+     * entitlements — from a single wizard payload. Either the whole graph is created or nothing is.
+     */
+    @PostMapping("/full")
+    public ResponseEntity<FullEventResponse> createFullEvent(@Valid @RequestBody CreateFullEventRequest request) {
+        EventService.EventCreationResult result = eventService.createFullEvent(request);
+        FullEventResponse body = FullEventResponse.from(result.event(), result.ticketTypes());
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @PutMapping("/{id}")

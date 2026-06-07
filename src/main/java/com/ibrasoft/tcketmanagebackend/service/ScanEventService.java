@@ -2,6 +2,7 @@ package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanEventResponse;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanOutcome;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanResult;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ValidationResult;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
@@ -48,7 +49,7 @@ public class ScanEventService {
         try {
             data = cryptoService.verify(qrPayload);
         } catch (Exception e) {
-            return new ScanResult(false, "Invalid or tampered ticket", null);
+            return new ScanResult(ScanOutcome.INVALID_QR, "Invalid or tampered QR code", null);
         }
         return scanTicket(data.getTicketID(), zoneId);
     }
@@ -59,13 +60,13 @@ public class ScanEventService {
 
         Optional<ZoneEntitlement> entitlement = findEntitlement(ticket, zoneId);
         if (entitlement.isEmpty()) {
-            return new ScanResult(false, "Ticket does not have access to this zone", null);
+            return new ScanResult(ScanOutcome.NO_ZONE_ENTITLEMENT, "Ticket does not have access to this zone", null);
         }
 
-        int maxEntries = entitlement.get().getMaxEntries();
+        Integer maxEntries = entitlement.get().getMaxEntries();
         int currentEntryCount = scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId);
-        if (currentEntryCount >= maxEntries) {
-            return new ScanResult(false,
+        if (maxEntries != null && currentEntryCount >= maxEntries) {
+            return new ScanResult(ScanOutcome.ENTRY_LIMIT_REACHED,
                 String.format("Ticket has reached its entry limit for this zone (%d/%d)",
                     currentEntryCount, maxEntries), null);
         }
@@ -76,9 +77,12 @@ public class ScanEventService {
                 .timestamp(LocalDateTime.now())
                 .build());
 
-        return new ScanResult(true,
-            String.format("Scan successful. Entry %d/%d for zone %s",
-                currentEntryCount + 1, maxEntries, zone.getName()), ScanEventResponse.from(saved));
+        String entryLabel = maxEntries == null
+            ? String.valueOf(currentEntryCount + 1)
+            : String.format("%d/%d", currentEntryCount + 1, maxEntries);
+        return new ScanResult(ScanOutcome.SUCCESS,
+            String.format("Scan successful. Entry %s for zone %s", entryLabel, zone.getName()),
+            ScanEventResponse.from(saved));
     }
 
     @Transactional(readOnly = true)
@@ -91,15 +95,16 @@ public class ScanEventService {
             return new ValidationResult(false, "Ticket does not have access to this zone");
         }
 
-        int maxEntries = entitlement.get().getMaxEntries();
+        Integer maxEntries = entitlement.get().getMaxEntries();
         int currentEntryCount = scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId);
-        if (currentEntryCount >= maxEntries) {
+        if (maxEntries != null && currentEntryCount >= maxEntries) {
             return new ValidationResult(false,
                 String.format("Ticket has reached its entry limit (%d/%d)", currentEntryCount, maxEntries));
         }
 
+        String remaining = maxEntries == null ? "unlimited" : String.valueOf(maxEntries - currentEntryCount);
         return new ValidationResult(true,
-            String.format("Ticket valid. Can enter %d more time(s)", maxEntries - currentEntryCount));
+            String.format("Ticket valid. %s entries remaining", remaining));
     }
 
     @Transactional(readOnly = true)

@@ -17,7 +17,7 @@ import java.util.UUID;
  * carrying the per-zone entry limit.
  *
  * The presence of a row means "this ticket type may enter this zone"; {@code maxEntries}
- * is the total number of entries allowed (1 = single entry, no re-entry). This replaces
+ * is the total number of entries allowed (1 = single entry, null = unlimited). This replaces
  * the former bitmask + scalar reentry-limit model so limits can vary per zone.
  */
 @Entity
@@ -45,8 +45,7 @@ public class ZoneEntitlement {
     @JoinColumn(name = "zone_id", nullable = false)
     private Zone zone;
 
-    @Column(name = "max_entries", nullable = false)
-    @NotNull
+    @Column(name = "max_entries")
     @Min(1)
     private Integer maxEntries;
 }

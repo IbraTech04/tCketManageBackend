@@ -25,7 +25,6 @@ import java.util.UUID;
 public class TicketType {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     @Builder.Default
     private UUID id = UUID.randomUUID();
 
