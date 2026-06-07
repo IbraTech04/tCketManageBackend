@@ -40,3 +40,5 @@ src/main/resources/keys/public.pem
 *.db
 
 *.properties
+src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/private.pem
+src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/public.pem

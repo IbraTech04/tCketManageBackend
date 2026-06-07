@@ -15,31 +15,38 @@ import java.util.Base64;
 @Configuration
 public class KeyConfig {
 
-    private String readPem(String path) throws Exception {
+    private byte[] readPem(String path) throws Exception {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
             if (is == null) {
                 throw new IllegalStateException("Key not found: " + path);
             }
+
             String pem = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            return pem.replaceAll("-----\\w+ PRIVATE KEY-----", "")
-                    .replaceAll("-----\\w+ PUBLIC KEY-----", "")
+
+            String normalized = pem
+                    .replaceAll("-----BEGIN (.*)-----", "")
+                    .replaceAll("-----END (.*)-----", "")
                     .replaceAll("\\s", "");
+
+            return Base64.getDecoder().decode(normalized);
         }
     }
 
     @Bean
     public PrivateKey privateKey() throws Exception {
-        String pem = readPem("keys/private.pem");
-        byte[] decoded = Base64.getDecoder().decode(pem);
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
-        return KeyFactory.getInstance("RSA").generatePrivate(spec);
+        PKCS8EncodedKeySpec spec =
+                new PKCS8EncodedKeySpec(readPem("keys/private.pem"));
+
+        return KeyFactory.getInstance("Ed25519")
+                .generatePrivate(spec);
     }
 
     @Bean
     public PublicKey publicKey() throws Exception {
-        String pem = readPem("keys/public.pem");
-        byte[] decoded = Base64.getDecoder().decode(pem);
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
-        return KeyFactory.getInstance("RSA").generatePublic(spec);
+        X509EncodedKeySpec spec =
+                new X509EncodedKeySpec(readPem("keys/public.pem"));
+
+        return KeyFactory.getInstance("Ed25519")
+                .generatePublic(spec);
     }
 }
