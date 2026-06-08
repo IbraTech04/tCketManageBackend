@@ -32,7 +32,7 @@ public class TicketGenerationService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MMM dd, yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
-    private static final int DEFAULT_QR_SIZE = 120;
+    private static final int DEFAULT_QR_SIZE = 150;
     private static final String TEMPLATE_PATH = "templates/ticketTemplate.svg";
     private final CryptoService cryptoService;
 
@@ -169,7 +169,7 @@ public class TicketGenerationService {
         BitMatrix bitMatrix = generateQRMatrix(qrData, DEFAULT_QR_SIZE);
 
         // Set transform and attributes
-        qrGroup.setAttribute("transform", "translate(135, 503) scale(" +
+        qrGroup.setAttribute("transform", "translate(135, 490) scale(" +
                 (double) DEFAULT_QR_SIZE / bitMatrix.getWidth() + ")");
         qrGroup.setAttribute("shape-rendering", "crispEdges");
 
