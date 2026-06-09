@@ -9,6 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,5 +74,38 @@ class InventoryServiceTest {
         inventoryService.release(t.getId(), 3);
 
         assertEquals(0, t.getReservedCount());
+    }
+
+    @Test
+    void tryReserveAll_allFit_reservesEveryTypeAndReturnsTrue() {
+        TicketType a = type(10, 3);
+        TicketType b = type(5, 1);
+        when(ticketTypeRepository.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+        when(ticketTypeRepository.findByIdForUpdate(b.getId())).thenReturn(Optional.of(b));
+
+        Map<UUID, Integer> wanted = new LinkedHashMap<>();
+        wanted.put(a.getId(), 2);
+        wanted.put(b.getId(), 1);
+
+        assertTrue(inventoryService.tryReserveAll(wanted));
+        assertEquals(5, a.getReservedCount());
+        assertEquals(2, b.getReservedCount());
+    }
+
+    @Test
+    void tryReserveAll_oneTypeSoldOut_returnsFalseWithoutIncrementing() {
+        TicketType a = type(10, 3);
+        TicketType full = type(5, 5);
+        when(ticketTypeRepository.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+        when(ticketTypeRepository.findByIdForUpdate(full.getId())).thenReturn(Optional.of(full));
+
+        // LinkedHashMap so 'a' is checked (and found to fit) before 'full' fails the check.
+        Map<UUID, Integer> wanted = new LinkedHashMap<>();
+        wanted.put(a.getId(), 2);
+        wanted.put(full.getId(), 1);
+
+        assertFalse(inventoryService.tryReserveAll(wanted));
+        assertEquals(3, a.getReservedCount()); // unchanged: no partial reservation
+        verify(ticketTypeRepository, never()).save(any());
     }
 }

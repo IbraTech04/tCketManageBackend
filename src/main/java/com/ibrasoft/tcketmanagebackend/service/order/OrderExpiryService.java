@@ -28,9 +28,15 @@ public class OrderExpiryService {
     @Scheduled(fixedDelayString = "${payments.sweep-interval-ms:60000}")
     @Transactional
     public void sweepExpiredOrders() {
-        List<Order> expired = orderRepository.findByStatusAndExpiresAtBefore(
+        List<Order> candidates = orderRepository.findByStatusAndExpiresAtBefore(
                 OrderStatus.AWAITING_PAYMENT, LocalDateTime.now());
-        for (Order order : expired) {
+        for (Order candidate : candidates) {
+            // Re-load under a row lock and re-check status: a buyer-cancel or a late confirmation may
+            // have moved this order since the unlocked query above, and must not be double-released.
+            Order order = orderRepository.findByIdForUpdate(candidate.getId()).orElse(null);
+            if (order == null || order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+                continue;
+            }
             orderService.releaseInventory(order);
             order.setStatus(OrderStatus.EXPIRED);
             orderRepository.save(order);

@@ -2,7 +2,7 @@
 
 REST API backend for tCketManage — a lightweight, self-hostable event ticketing system. Handles event management, ticket generation, order/payment processing, QR-based ticket scanning, and email delivery.
 
-Built with **Spring Boot 3.5 + Java 21**, backed by SQLite (dev) or MySQL (production).
+Built with **Spring Boot 3.5 + Java 21**, backed by SQLite (dev) or PostgreSQL (production).
 
 ## Features
 
@@ -32,7 +32,7 @@ Key properties in `src/main/resources/application.properties`:
 | `payments.mock.auto-confirm` | `true` | Settle mock orders immediately |
 | `payments.interac.payee-email` | _(empty)_ | Required to enable Interac e-Transfer |
 | `app.email.enabled` | `true` | `false` logs emails only; `true` sends via SMTP |
-| `spring.datasource.url` | SQLite | Switch to `jdbc:mysql://...` for production |
+| `spring.datasource.url` | SQLite | Switch to `jdbc:postgresql://...` for production |
 
 ## API Overview
 
@@ -49,19 +49,24 @@ All routes are under `/api/v1/`.
 | CSV Import | `POST /events/{id}/imports` (multipart, admin-only) |
 | Payment webhooks | `POST /webhooks/payment` |
 
-Admin-only endpoints require an `X-Admin-Token` header matching `payments.admin-token`.
+## Concurrency & Locking Strategy
+
+Selling tickets is a classic oversell problem: many buyers can race for the last seat of a ticket type, and the same order can receive a confirmation, a buyer-cancel, and an expiry sweep at nearly the same moment. The majority of the time spent architecting tCketManage was designing a locking strategy that enables high concurrency without risking oversells or invalid states, and without holding large locks for large periods of time. If you'd like to learn more about the approach I took, check out [LOCKING.MD](LOCKING.MD).
 
 ## Tech Stack
 
 - Spring Boot 3.5, Spring Data JPA, Spring Mail
-- SQLite (dev) / MySQL (prod)
+- SQLite (dev) / PostgreSQL (prod)
 - ZXing (QR generation), Batik (SVG rendering)
-- Thymeleaf (email templates)
+- Thymeleaf (email and ticket templates)
 - Lombok, springdoc-openapi
 
 ## Still To Do
 
 - Authentication (JWT/OAuth — currently all endpoints are open except those behind `X-Admin-Token`)
-- Stripe payment implementation (stub only)
+- Stripe payment implementation 
+- ETransfer payment confirmation flow
 - Docker / deployment packaging
 - STOMP/WebSocket support for async updates (specifically email delivery status)
+- Anything else that's broken or missing! This is a very early-stage project, so expect rough edges. Contributions welcome!
+- Ticket theming + new Ticket Designs :eyes:

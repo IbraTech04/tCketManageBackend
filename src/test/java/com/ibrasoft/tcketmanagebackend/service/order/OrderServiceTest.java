@@ -8,13 +8,11 @@ import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
-import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProvider;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProviderRegistry;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
-import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +32,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * Tests the {@code createOrder} orchestration — that the inventory hold, provider call, and
+ * finalization are sequenced through {@link OrderTransactions} (so no DB lock is held across the
+ * provider call), plus the cancellation path. The reserve/persist/finalize transaction bodies
+ * themselves are covered by {@link OrderTransactionsTest}.
+ */
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
     @Mock private OrderRepository orderRepository;
     @Mock private EventRepository eventRepository;
-    @Mock private TicketTypeRepository ticketTypeRepository;
     @Mock private InventoryService inventoryService;
     @Mock private PaymentProviderRegistry providerRegistry;
-    @Mock private PaymentConfirmationService confirmationService;
+    @Mock private OrderTransactions orderTransactions;
     @Mock private PaymentProvider provider;
 
     @InjectMocks
@@ -66,65 +68,71 @@ class OrderServiceTest {
         return new CreateOrderRequest("buyer@example.com", event.getId(), null, List.of(item));
     }
 
-    private void stubCommon(PaymentInitiation initiation) {
-        when(providerRegistry.resolve(null)).thenReturn(provider);
-        when(provider.id()).thenReturn("mock");
-        when(provider.holdDuration()).thenReturn(Duration.ofMinutes(30));
-        when(provider.initiate(any())).thenReturn(initiation);
-        when(eventRepository.findById(event.getId())).thenReturn(Optional.of(event));
-        when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+    private Order pendingOrder() {
+        return Order.builder()
+                .id(UUID.randomUUID())
+                .event(event)
+                .status(OrderStatus.AWAITING_PAYMENT)
+                .amountTotal(new BigDecimal("10.00"))
+                .currency("CAD")
+                .referenceCode("ORD-TEST")
+                .buyerEmail("buyer@example.com")
+                .build();
     }
 
     @Test
-    void createOrder_manualProvider_awaitingPayment() {
-        stubCommon(new PaymentInitiation.Instructions("pref", "pay please", Map.of()));
+    void createOrder_manualProvider_recordsInitiationRef() {
+        Order pending = pendingOrder();
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        PaymentInitiation initiation = new PaymentInitiation.Instructions("pref", "pay please", Map.of());
+        when(provider.initiate(any())).thenReturn(initiation);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation)))
+                .thenAnswer(inv -> { pending.setProviderRef("pref"); return pending; });
 
         OrderCreationResult result = orderService.createOrder(request());
 
         assertEquals(OrderStatus.AWAITING_PAYMENT, result.order().getStatus());
-        assertEquals(new BigDecimal("10.00"), result.order().getAmountTotal());
         assertEquals("pref", result.order().getProviderRef());
         assertInstanceOf(PaymentInitiation.Instructions.class, result.initiation());
-        verify(inventoryService, times(1)).reserve(ticketType.getId(), 1);
-        verify(confirmationService, never()).confirmPayment(any(), any());
+        verify(orderTransactions, never()).releaseHold(any());
     }
 
     @Test
     void createOrder_autoConfirmProvider_confirmsImmediately() {
-        stubCommon(new PaymentInitiation.Completed("pref"));
-        Order paid = Order.builder().id(UUID.randomUUID()).status(OrderStatus.PAID).build();
-        when(confirmationService.confirmPayment(any(UUID.class), eq("pref"))).thenReturn(paid);
+        Order pending = pendingOrder();
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        PaymentInitiation initiation = new PaymentInitiation.Completed("pref");
+        when(provider.initiate(any())).thenReturn(initiation);
+        Order paid = pendingOrder();
+        paid.setStatus(OrderStatus.PAID);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation))).thenReturn(paid);
 
         OrderCreationResult result = orderService.createOrder(request());
 
         assertEquals(OrderStatus.PAID, result.order().getStatus());
-        verify(confirmationService, times(1)).confirmPayment(any(UUID.class), eq("pref"));
+        verify(orderTransactions, times(1)).finalizeInitiation(pending.getId(), initiation);
     }
 
     @Test
-    void createOrder_ticketTypeFromOtherEvent_throws() {
-        Event other = Event.builder().id(UUID.randomUUID()).name("Other").time(LocalDateTime.now())
-                .location("X").description("Y").build();
-        TicketType foreign = TicketType.builder().id(UUID.randomUUID()).event(other).name("GA")
-                .price(BigDecimal.ONE).build();
+    void createOrder_providerInitiateFails_releasesHoldAndRethrows() {
+        Order pending = pendingOrder();
         when(providerRegistry.resolve(null)).thenReturn(provider);
-        when(provider.id()).thenReturn("mock");
-        when(provider.holdDuration()).thenReturn(Duration.ofMinutes(30));
-        when(eventRepository.findById(event.getId())).thenReturn(Optional.of(event));
-        when(ticketTypeRepository.findById(foreign.getId())).thenReturn(Optional.of(foreign));
+        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        when(provider.initiate(any())).thenThrow(new RuntimeException("provider unavailable"));
 
-        CreateOrderRequest req = new CreateOrderRequest("buyer@example.com", event.getId(), null,
-                List.of(new OrderItemRequest(foreign.getId(), "A", "B", "a@b.com")));
+        assertThrows(RuntimeException.class, () -> orderService.createOrder(request()));
 
-        assertThrows(IllegalArgumentException.class, () -> orderService.createOrder(req));
+        verify(orderTransactions, times(1)).releaseHold(pending.getId());
+        verify(orderTransactions, never()).finalizeInitiation(any(), any());
     }
 
     @Test
     void cancelOrder_awaiting_releasesInventory() {
         Order order = Order.builder().id(UUID.randomUUID()).status(OrderStatus.AWAITING_PAYMENT)
                 .items(List.of(OrderItem.builder().ticketType(ticketType).build())).build();
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Order result = orderService.cancelOrder(order.getId());
@@ -136,7 +144,7 @@ class OrderServiceTest {
     @Test
     void cancelOrder_paid_throwsConflict() {
         Order order = Order.builder().id(UUID.randomUUID()).status(OrderStatus.PAID).build();
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
 
         assertThrows(ConflictException.class, () -> orderService.cancelOrder(order.getId()));
     }

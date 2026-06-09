@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,12 +34,31 @@ class OrderExpiryServiceTest {
                 .status(OrderStatus.AWAITING_PAYMENT).build();
         when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
                 .thenReturn(List.of(o));
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
 
         expiryService.sweepExpiredOrders();
 
         assertEquals(OrderStatus.EXPIRED, o.getStatus());
         verify(orderService, times(1)).releaseInventory(o);
         verify(orderRepository, times(1)).save(o);
+    }
+
+    @Test
+    void sweep_orderMovedOnBeforeLock_isSkipped() {
+        UUID id = UUID.randomUUID();
+        Order stale = Order.builder().id(id).referenceCode("ORD-2")
+                .status(OrderStatus.AWAITING_PAYMENT).build();
+        // Between the unlocked query and the locked re-read, a buyer-cancel won the row.
+        Order locked = Order.builder().id(id).referenceCode("ORD-2")
+                .status(OrderStatus.CANCELLED).build();
+        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
+                .thenReturn(List.of(stale));
+        when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.of(locked));
+
+        expiryService.sweepExpiredOrders();
+
+        verify(orderService, never()).releaseInventory(any());
+        verify(orderRepository, never()).save(any());
     }
 
     @Test

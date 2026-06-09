@@ -3,27 +3,19 @@ package com.ibrasoft.tcketmanagebackend.service.order;
 import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
-import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
-import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
-import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
-import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentContext;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProvider;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProviderRegistry;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
-import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,74 +25,42 @@ import java.util.UUID;
  */
 @Service
 @AllArgsConstructor
-@Transactional
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final EventRepository eventRepository;
-    private final TicketTypeRepository ticketTypeRepository;
     private final InventoryService inventoryService;
     private final PaymentProviderRegistry providerRegistry;
-    private final PaymentConfirmationService confirmationService;
+    private final OrderTransactions orderTransactions;
 
+    /**
+     * Creates an order. Deliberately NOT {@code @Transactional}: the inventory hold is committed in
+     * {@link OrderTransactions#reserveAndPersist} BEFORE the payment provider is contacted, so the
+     * pessimistic ticket-type row lock is never held across {@link PaymentProvider#initiate}'s
+     * (potentially slow) network call. The provider ref — and synchronous confirmation, if any — is
+     * then recorded in a second transaction.
+     */
     public OrderCreationResult createOrder(CreateOrderRequest request) {
         PaymentProvider provider = providerRegistry.resolve(request.getProviderId());
 
-        Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+        // Phase 1 (committed): reserve seats + persist the pending order, then release the row lock.
+        Order order = orderTransactions.reserveAndPersist(request, provider);
 
-        Order order = Order.builder()
-                .id(UUID.randomUUID())
-                .buyerEmail(request.getBuyerEmail())
-                .event(event)
-                .status(OrderStatus.AWAITING_PAYMENT)
-                .providerId(provider.id())
-                .referenceCode(generateReferenceCode())
-                .currency("CAD")
-                .createdAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plus(provider.holdDuration()))
-                .items(new ArrayList<>())
-                .build();
-
-        BigDecimal amountTotal = BigDecimal.ZERO;
-        for (OrderItemRequest itemReq : request.getItems()) {
-            TicketType ticketType = ticketTypeRepository.findById(itemReq.getTicketTypeId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                        "TicketType not found: " + itemReq.getTicketTypeId()));
-            if (ticketType.getEvent() == null || !ticketType.getEvent().getId().equals(event.getId())) {
-                throw new IllegalArgumentException(
-                    "Ticket type " + ticketType.getId() + " does not belong to event " + event.getId());
-            }
-
-            // Reserve one seat; throws ConflictException if sold out.
-            inventoryService.reserve(ticketType.getId(), 1);
-
-            order.getItems().add(OrderItem.builder()
-                    .order(order)
-                    .ticketType(ticketType)
-                    .attendeeFirstName(itemReq.getAttendeeFirstName())
-                    .attendeeLastName(itemReq.getAttendeeLastName())
-                    .attendeeEmail(itemReq.getAttendeeEmail())
-                    .unitPrice(ticketType.getPrice())
-                    .build());
-            amountTotal = amountTotal.add(ticketType.getPrice());
-        }
-
-        order.setAmountTotal(amountTotal);
-        order = orderRepository.save(order);
-
+        // Phase 2 (no transaction, no lock held): talk to the payment provider.
         PaymentContext context = new PaymentContext(
                 order.getId(), order.getReferenceCode(), order.getAmountTotal(), order.getCurrency(),
-                order.getBuyerEmail(), "Tickets for " + event.getName(), null, null);
-        PaymentInitiation initiation = provider.initiate(context);
-        order.setProviderRef(initiation.providerRef());
-        order = orderRepository.save(order);
-
-        // Providers that settle synchronously (e.g. Mock auto-pay) confirm right away.
-        if (initiation instanceof PaymentInitiation.Completed) {
-            order = confirmationService.confirmPayment(order.getId(), initiation.providerRef());
+                order.getBuyerEmail(), "Tickets for " + order.getEvent().getName(), null, null);
+        PaymentInitiation initiation;
+        try {
+            initiation = provider.initiate(context);
+        } catch (RuntimeException e) {
+            // Provider failed to begin payment — release the hold instead of stranding it.
+            orderTransactions.releaseHold(order.getId());
+            throw e;
         }
 
+        // Phase 3 (committed): record the provider ref and confirm if it settled synchronously.
+        order = orderTransactions.finalizeInitiation(order.getId(), initiation);
         return new OrderCreationResult(order, initiation);
     }
 
@@ -118,8 +78,11 @@ public class OrderService {
         return orderRepository.findByEventId(eventId);
     }
 
+    @Transactional
     public Order cancelOrder(UUID id) {
-        Order order = getOrder(id);
+        // Lock the order row so a concurrent expiry sweep can't also release the same hold.
+        Order order = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
         if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
             throw new ConflictException("Only orders awaiting payment can be cancelled (status="
                     + order.getStatus() + ")");
@@ -129,14 +92,10 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    /** Releases all seats held by an order back to inventory. */
+    /** Releases all seats held by an order back to inventory. Runs within the caller's transaction. */
     void releaseInventory(Order order) {
         for (OrderItem item : order.getItems()) {
             inventoryService.release(item.getTicketType().getId(), 1);
         }
-    }
-
-    private String generateReferenceCode() {
-        return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

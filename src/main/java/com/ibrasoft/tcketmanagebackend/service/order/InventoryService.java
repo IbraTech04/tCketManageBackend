@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -36,6 +38,38 @@ public class InventoryService {
         }
         type.setReservedCount(reserved + quantity);
         ticketTypeRepository.save(type);
+    }
+
+    /**
+     * Attempts to reserve several quantities at once, all-or-nothing, returning {@code false} (rather
+     * than throwing) if any ticket type lacks capacity. Used by the late-payment reconciliation path,
+     * where the caller must stay in control of its own transaction: a thrown {@link ConflictException}
+     * would mark the surrounding confirm transaction rollback-only and undo the status change the
+     * caller still needs to commit. All rows are locked and checked before any is incremented, so a
+     * partial reservation can never be left behind.
+     *
+     * @param quantitiesByTicketType seats wanted per ticket type id
+     * @return {@code true} if every quantity was reserved; {@code false} if none were (capacity short)
+     */
+    @Transactional
+    public boolean tryReserveAll(Map<UUID, Integer> quantitiesByTicketType) {
+        Map<UUID, TicketType> locked = new LinkedHashMap<>();
+        for (Map.Entry<UUID, Integer> entry : quantitiesByTicketType.entrySet()) {
+            TicketType type = lock(entry.getKey());
+            locked.put(entry.getKey(), type);
+            Integer capacity = type.getCapacity();
+            int reserved = type.getReservedCount() == null ? 0 : type.getReservedCount();
+            if (capacity != null && reserved + entry.getValue() > capacity) {
+                return false; // no increments performed yet → nothing to undo
+            }
+        }
+        for (Map.Entry<UUID, Integer> entry : quantitiesByTicketType.entrySet()) {
+            TicketType type = locked.get(entry.getKey());
+            int reserved = type.getReservedCount() == null ? 0 : type.getReservedCount();
+            type.setReservedCount(reserved + entry.getValue());
+            ticketTypeRepository.save(type);
+        }
+        return true;
     }
 
     /**
