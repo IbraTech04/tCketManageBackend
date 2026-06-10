@@ -66,7 +66,8 @@ class ScanEventServiceTest {
                 .ticketType(ticketType).build();
         zone = Zone.builder().id(zoneId).name("Main").build();
 
-        lenient().when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        // Scans take a pessimistic write lock on the ticket row (findByIdForUpdate), not a plain find.
+        lenient().when(ticketRepository.findByIdForUpdate(ticketId)).thenReturn(Optional.of(ticket));
         lenient().when(zoneRepository.findById(zoneId)).thenReturn(Optional.of(zone));
     }
 
@@ -133,7 +134,7 @@ class ScanEventServiceTest {
     @Test
     void scan_ticketNotFound_throws() {
         UUID missing = UUID.randomUUID();
-        when(ticketRepository.findById(missing)).thenReturn(Optional.empty());
+        when(ticketRepository.findByIdForUpdate(missing)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> scanEventService.scanTicket(missing, zoneId));
     }

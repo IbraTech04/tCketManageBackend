@@ -24,4 +24,22 @@ public class EmailProperties {
 
     /** Display name shown alongside the from address. */
     private String fromName = "tCketManage";
+
+    /** Async dispatch tuning, bound from {@code app.email.async.*}. */
+    private final Async async = new Async();
+
+    /**
+     * Controls the dedicated executor that ticket emails are sent on. Kept deliberately small:
+     * SMTP is I/O-bound and most providers rate-limit, so a wide pool buys nothing and risks
+     * tripping send limits.
+     */
+    @Data
+    public static class Async {
+
+        /** Worker threads (and max pool size) for the email executor. */
+        private int concurrency = 3;
+
+        /** How many pending sends may queue before the submitting thread runs them inline. */
+        private int queueCapacity = 500;
+    }
 }

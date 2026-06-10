@@ -6,10 +6,10 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateFullEventRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateTicketTypeRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.ImportConfig;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateEventRequest;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobAccepted;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.FullEventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ImportResult;
-import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketDeliveryResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketTypeResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ZoneResponse;
@@ -145,24 +145,27 @@ public class EventController {
     /**
      * Re-emails every ticket for the event (typically after a CSV import, where tickets are created
      * without sending). Destructive in volume — the frontend gates this behind explicit confirmation.
+     * Returns {@code 202 Accepted} immediately; live per-ticket progress and the final sent/failed
+     * counts are streamed over STOMP at {@code /topic/email-jobs/{jobId}}.
      */
     @PostMapping("/{id}/tickets/resend")
-    public TicketDeliveryResponse resendAllTickets(
+    public ResponseEntity<EmailJobAccepted> resendAllTickets(
             @PathVariable UUID id,
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
         adminGuard.require(adminToken);
-        return ticketDeliveryService.resendAll(id);
+        return ResponseEntity.accepted().body(ticketDeliveryService.resendAll(id));
     }
 
     /**
      * Emails only the event's tickets that have never been successfully sent
-     * ({@code lastTicketSent == null}) — a safe "fill the gaps" complement to a full resend.
+     * ({@code lastTicketSent == null}) — a safe "fill the gaps" complement to a full resend. Async:
+     * see {@link #resendAllTickets} for how progress is reported.
      */
     @PostMapping("/{id}/tickets/send-missing")
-    public TicketDeliveryResponse sendMissingTickets(
+    public ResponseEntity<EmailJobAccepted> sendMissingTickets(
             @PathVariable UUID id,
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
         adminGuard.require(adminToken);
-        return ticketDeliveryService.sendMissing(id);
+        return ResponseEntity.accepted().body(ticketDeliveryService.sendMissing(id));
     }
 }

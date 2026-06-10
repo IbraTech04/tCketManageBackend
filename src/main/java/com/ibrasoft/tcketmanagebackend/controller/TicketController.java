@@ -3,6 +3,7 @@ package com.ibrasoft.tcketmanagebackend.controller;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketRequest;
+import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobAccepted;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.security.AdminGuard;
@@ -40,10 +41,11 @@ public class TicketController {
         Ticket created = ticketService.createTicket(
             request.getFirstName(), request.getLastName(), request.getEmail(),
             request.getEventId(), request.getTicketTypeId());
-        // Opt-in delivery: emails the ticket and stamps lastTicketSent on the same instance, so the
-        // response reflects delivery. Left silent (and "missing") by default for comp tickets.
+        // Opt-in delivery: dispatched asynchronously, so the returned ticket's lastTicketSent is
+        // still null here — delivery is stamped once the email pool sends it. Comp tickets created
+        // without sendEmail stay silent (and "missing") by default.
         if (request.isSendEmail()) {
-            ticketDeliveryService.send(created);
+            ticketDeliveryService.sendAsync(created.getID());
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(TicketResponse.from(created));
     }
@@ -62,13 +64,14 @@ public class TicketController {
 
     /**
      * Re-emails a single ticket to its holder (e.g. a manually issued ticket the attendee never
-     * received). Returns the ticket with its refreshed {@code lastTicketSent}.
+     * received). Returns {@code 202 Accepted} with a job handle; delivery happens asynchronously and
+     * its progress/outcome is published over STOMP at {@code /topic/email-jobs/{jobId}}.
      */
     @PostMapping("/{id}/resend")
-    public TicketResponse resendTicket(
+    public ResponseEntity<EmailJobAccepted> resendTicket(
             @PathVariable UUID id,
             @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
         adminGuard.require(adminToken);
-        return TicketResponse.from(ticketDeliveryService.resend(id));
+        return ResponseEntity.accepted().body(ticketDeliveryService.resend(id));
     }
 }

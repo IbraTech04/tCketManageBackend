@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -52,11 +53,16 @@ public class SmtpEmailService implements EmailService {
             String body = renderBody(ticket);
 
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED, "UTF-8");
+            // MIXED_RELATED so the inline logo (multipart/related) and the ticket attachment
+            // (multipart/mixed) both coexist. setText must precede addInline.
+            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
             helper.setFrom(properties.getFrom(), properties.getFromName());
             helper.setTo(ticket.getEmail());
             helper.setSubject(subjectFor(ticket));
             helper.setText(body, true);
+            // Embed the brand logo as a CID inline image referenced by <img src="cid:logo"> in the
+            // template. SVG/data-URI logos are stripped by most mail clients, so this must be a PNG.
+            helper.addInline("logo", new ClassPathResource("templates/tCketManage.png"), "image/png");
             helper.addAttachment(attachmentName(ticket), new ByteArrayResource(ticketPng), "image/png");
 
             mailSender.send(message);
