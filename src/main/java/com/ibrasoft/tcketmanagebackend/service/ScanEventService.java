@@ -94,7 +94,9 @@ public class ScanEventService {
 
     @Transactional(readOnly = true)
     public ValidationResult validateTicketForZone(UUID ticketId, UUID zoneId) {
-        Ticket ticket = requireTicket(ticketId);
+        // Plain read, no lock: validation is advisory, and a PESSIMISTIC_WRITE inside a read-only
+        // transaction is rejected outright by PostgreSQL. Only scanTicket needs the ticket-row lock.
+        Ticket ticket = requireTicketReadOnly(ticketId);
         requireZone(zoneId);
 
         Optional<ZoneEntitlement> entitlement = findEntitlement(ticket, zoneId);
@@ -150,8 +152,17 @@ public class ScanEventService {
         return entitlementRepository.findByTicketType_IdAndZone_Id(ticket.getTicketType().getId(), zoneId);
     }
 
+    /**
+     * Loads a ticket under the row lock that serializes concurrent scans (the count-then-insert
+     * against the entry limit must not interleave).
+     */
     private Ticket requireTicket(UUID ticketId) {
         return ticketRepository.findByIdForUpdate(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
+    }
+
+    private Ticket requireTicketReadOnly(UUID ticketId) {
+        return ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
     }
 

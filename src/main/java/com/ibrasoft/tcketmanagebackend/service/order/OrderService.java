@@ -4,7 +4,6 @@ import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
-import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentContext;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
@@ -94,8 +93,6 @@ public class OrderService {
 
     /** Releases all seats held by an order back to inventory. Runs within the caller's transaction. */
     void releaseInventory(Order order) {
-        for (OrderItem item : order.getItems()) {
-            inventoryService.release(item.getTicketType().getId(), 1);
-        }
+        inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
     }
 }

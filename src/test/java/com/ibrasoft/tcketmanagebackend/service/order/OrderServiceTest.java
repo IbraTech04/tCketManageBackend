@@ -138,7 +138,7 @@ class OrderServiceTest {
         Order result = orderService.cancelOrder(order.getId());
 
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
-        verify(inventoryService, times(1)).release(ticketType.getId(), 1);
+        verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
     }
 
     @Test

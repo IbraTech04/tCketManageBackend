@@ -66,8 +66,10 @@ class ScanEventServiceTest {
                 .ticketType(ticketType).build();
         zone = Zone.builder().id(zoneId).name("Main").build();
 
-        // Scans take a pessimistic write lock on the ticket row (findByIdForUpdate), not a plain find.
+        // Scans take a pessimistic write lock on the ticket row (findByIdForUpdate); read-only
+        // validation uses a plain find (no lock is allowed in a read-only transaction).
         lenient().when(ticketRepository.findByIdForUpdate(ticketId)).thenReturn(Optional.of(ticket));
+        lenient().when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
         lenient().when(zoneRepository.findById(zoneId)).thenReturn(Optional.of(zone));
     }
 

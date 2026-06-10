@@ -136,7 +136,7 @@ class OrderTransactionsTest {
         orderTransactions.releaseHold(o.getId());
 
         assertEquals(OrderStatus.CANCELLED, o.getStatus());
-        verify(inventoryService, times(1)).release(ticketType.getId(), 1);
+        verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
     }
 
     @Test
@@ -147,7 +147,44 @@ class OrderTransactionsTest {
 
         orderTransactions.releaseHold(o.getId());
 
-        verify(inventoryService, never()).release(any(), anyInt());
+        verify(inventoryService, never()).releaseAll(any());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void expireIfStillAwaiting_awaiting_releasesInventoryAndExpires() {
+        Order o = Order.builder().id(UUID.randomUUID()).status(OrderStatus.AWAITING_PAYMENT)
+                .items(List.of(OrderItem.builder().ticketType(ticketType).build())).build();
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertTrue(orderTransactions.expireIfStillAwaiting(o.getId()));
+
+        assertEquals(OrderStatus.EXPIRED, o.getStatus());
+        verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+    }
+
+    @Test
+    void expireIfStillAwaiting_orderMovedOnUnderTheLock_isSkipped() {
+        // Between the sweep's unlocked candidate query and this locked re-read, a buyer-cancel
+        // (or a late confirmation) won the row — the hold must not be released twice.
+        Order o = Order.builder().id(UUID.randomUUID()).status(OrderStatus.CANCELLED)
+                .items(List.of(OrderItem.builder().ticketType(ticketType).build())).build();
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        assertFalse(orderTransactions.expireIfStillAwaiting(o.getId()));
+
+        verify(inventoryService, never()).releaseAll(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void expireIfStillAwaiting_orderGone_isSkipped() {
+        UUID id = UUID.randomUUID();
+        when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.empty());
+
+        assertFalse(orderTransactions.expireIfStillAwaiting(id));
+
+        verify(inventoryService, never()).releaseAll(any());
     }
 }

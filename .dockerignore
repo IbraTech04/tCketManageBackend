@@ -1,0 +1,9 @@
+target/
+*.db
+.git/
+.idea/
+*.iml
+docs/
+scripts/
+*.md
+.mvn/wrapper/maven-wrapper.jar

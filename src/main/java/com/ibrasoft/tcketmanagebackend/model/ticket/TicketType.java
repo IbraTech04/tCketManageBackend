@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,11 +17,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * {@code @DynamicUpdate} so flushes only write the columns a transaction actually changed:
+ * {@code reservedCount} is maintained by atomic conditional UPDATEs in {@code InventoryService},
+ * and a full-row UPDATE from an unrelated edit must not overwrite it with a stale value.
+ */
 @Entity
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@DynamicUpdate
 @Table(name = "ticket_types")
 public class TicketType {
 

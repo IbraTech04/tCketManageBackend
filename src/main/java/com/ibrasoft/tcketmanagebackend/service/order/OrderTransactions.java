@@ -162,11 +162,33 @@ class OrderTransactions {
         if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
             return; // already cancelled/expired/paid elsewhere — nothing to release
         }
-        for (OrderItem item : order.getItems()) {
-            inventoryService.release(item.getTicketType().getId(), 1);
-        }
+        inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
+    }
+
+    /**
+     * Expires a single overdue order in its own transaction: re-load under the order-row lock,
+     * re-check it is still {@code AWAITING_PAYMENT} (a buyer-cancel or late confirmation may have
+     * moved it since the sweep's unlocked candidate query), then release its hold.
+     *
+     * <p>One transaction per order is deliberate. A single sweep-wide transaction would accumulate
+     * order-row and ticket-type locks across candidates in an order that violates the global
+     * "order row, then ticket-type rows" acquisition order, deadlocking against concurrent
+     * confirm/cancel transactions — and one failed candidate would roll back every other expiry.
+     *
+     * @return {@code true} if this call expired the order; {@code false} if it had already moved on
+     */
+    @Transactional
+    boolean expireIfStillAwaiting(UUID orderId) {
+        Order order = orderRepository.findByIdForUpdate(orderId).orElse(null);
+        if (order == null || order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            return false;
+        }
+        inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
+        order.setStatus(OrderStatus.EXPIRED);
+        orderRepository.save(order);
+        return true;
     }
 
     private String generateRaw() {

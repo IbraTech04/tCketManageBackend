@@ -63,7 +63,9 @@ public class TicketTypeService {
     }
 
     public TicketType updateTicketType(UUID id, UpdateTicketTypeRequest request) {
-        TicketType existing = ticketTypeRepository.findById(id)
+        // Locked load: the flush rewrites the row, so reading it unlocked would let a concurrent
+        // seat reservation land between load and flush and be silently overwritten.
+        TicketType existing = ticketTypeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found with id: " + id));
 
         existing.setName(request.getName());

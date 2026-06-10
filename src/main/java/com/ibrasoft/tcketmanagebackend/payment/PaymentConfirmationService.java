@@ -12,9 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * The single, provider-agnostic place an order transitions to {@code PAID}. Every provider — Stripe
@@ -71,10 +69,6 @@ public class PaymentConfirmationService {
 
     /** Re-acquires the seats an expired/cancelled order had held. {@code false} if any is sold out. */
     private boolean reReserveSeats(Order order) {
-        Map<UUID, Integer> needed = order.getItems().stream()
-                .collect(Collectors.groupingBy(
-                        item -> item.getTicketType().getId(),
-                        Collectors.summingInt(item -> 1)));
-        return inventoryService.tryReserveAll(needed);
+        return inventoryService.tryReserveAll(InventoryService.seatsByTicketType(order.getItems()));
     }
 }

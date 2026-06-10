@@ -11,54 +11,58 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * The sweep itself only orchestrates: it queries candidates unlocked, then expires each one in its
+ * own transaction via {@link OrderTransactions#expireIfStillAwaiting} (covered by
+ * {@link OrderTransactionsTest}). These tests verify that per-candidate isolation.
+ */
 @ExtendWith(MockitoExtension.class)
 class OrderExpiryServiceTest {
 
     @Mock private OrderRepository orderRepository;
-    @Mock private OrderService orderService;
+    @Mock private OrderTransactions orderTransactions;
 
     @InjectMocks
     private OrderExpiryService expiryService;
 
-    @Test
-    void sweep_expiresAndReleasesInventory() {
-        Order o = Order.builder().id(UUID.randomUUID()).referenceCode("ORD-1")
+    private Order candidate(String ref) {
+        return Order.builder().id(UUID.randomUUID()).referenceCode(ref)
                 .status(OrderStatus.AWAITING_PAYMENT).build();
-        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
-                .thenReturn(List.of(o));
-        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
-
-        expiryService.sweepExpiredOrders();
-
-        assertEquals(OrderStatus.EXPIRED, o.getStatus());
-        verify(orderService, times(1)).releaseInventory(o);
-        verify(orderRepository, times(1)).save(o);
     }
 
     @Test
-    void sweep_orderMovedOnBeforeLock_isSkipped() {
-        UUID id = UUID.randomUUID();
-        Order stale = Order.builder().id(id).referenceCode("ORD-2")
-                .status(OrderStatus.AWAITING_PAYMENT).build();
-        // Between the unlocked query and the locked re-read, a buyer-cancel won the row.
-        Order locked = Order.builder().id(id).referenceCode("ORD-2")
-                .status(OrderStatus.CANCELLED).build();
+    void sweep_expiresEachCandidateInItsOwnTransaction() {
+        Order a = candidate("ORD-1");
+        Order b = candidate("ORD-2");
         when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
-                .thenReturn(List.of(stale));
-        when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.of(locked));
+                .thenReturn(List.of(a, b));
+        when(orderTransactions.expireIfStillAwaiting(any())).thenReturn(true);
 
         expiryService.sweepExpiredOrders();
 
-        verify(orderService, never()).releaseInventory(any());
-        verify(orderRepository, never()).save(any());
+        verify(orderTransactions, times(1)).expireIfStillAwaiting(a.getId());
+        verify(orderTransactions, times(1)).expireIfStillAwaiting(b.getId());
+    }
+
+    @Test
+    void sweep_oneCandidateFails_othersStillProcessed() {
+        Order failing = candidate("ORD-1");
+        Order ok = candidate("ORD-2");
+        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
+                .thenReturn(List.of(failing, ok));
+        when(orderTransactions.expireIfStillAwaiting(failing.getId()))
+                .thenThrow(new RuntimeException("db hiccup"));
+        when(orderTransactions.expireIfStillAwaiting(ok.getId())).thenReturn(true);
+
+        expiryService.sweepExpiredOrders();
+
+        verify(orderTransactions, times(1)).expireIfStillAwaiting(ok.getId());
     }
 
     @Test
@@ -68,7 +72,6 @@ class OrderExpiryServiceTest {
 
         expiryService.sweepExpiredOrders();
 
-        verify(orderService, never()).releaseInventory(any());
-        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(orderTransactions);
     }
 }
