@@ -9,7 +9,7 @@ At its core, the system stays correct by serializing every contended mutation on
 - Ticket-type row: The first lock any transaction meets, which guards capacity. Every `reserve` / `release` loads the `TicketType` via `findByIdForUpdate` (`PESSIMISTIC_WRITE`), so the check-then-increment of `reservedCount` against `capacity` is one atomic critical section. Two orders competing for the last seat are forced to take turns — the first commits `reserved = capacity`, the second re-reads that fresh value and is rejected with a `ConflictException`. Overselling is impossible because the "is there room?" test and the increment can never interleave.
 - Order row: Once you've locked in your tickets, you now need to pay for them. This lock guards lifecycle transitions and ensures a consistent payment state throughout. Every state change (confirm, cancel, expire, refund) loads the order via `findByIdForUpdate`, so transitions to `PAID` / `CANCELLED` / `EXPIRED` serialize on that one row.
 
-But why is this approach the _ideal_ approach? Well, let's compare it to the naive approach. Assume we were to use one big transaction around reserve + payment + persist rather than our previously defined granular locking system. This large lock would hold the ticket-type row lock for the entire duration of the payment provider's network call. That single lock is shared by *every* buyer of that ticket type, so one slow Stripe round-trip would block all concurrent purchases of the same ticket and could exhaust the DB connection pool under load. At best, this would lead to a poor user experience; at worst, it could cause the system to grind to a halt.
+But why is this approach the _preferable_ approach? Well, let's compare it to the naive approach. Assume we were to use one big transaction around reserve + payment + persist rather than our previously defined granular locking system. This large lock would hold the ticket-type row lock for the entire duration of the payment provider's network call. That single lock is shared by *every* buyer of that ticket type, so one slow Stripe round-trip would block all concurrent purchases of the same ticket and could exhaust the DB connection pool under load. At best, this would lead to a poor user experience; at worst, it could cause the system to grind to a halt.
 
 `OrderService.createOrder` is therefore deliberately **not** `@Transactional`. It splits the work into three independent phases routed through a separate `OrderTransactions` bean (a separate bean so Spring's proxy actually applies the `@Transactional` boundaries; a self-invocation would bypass the proxy and silently run in one scope):
 
@@ -30,3 +30,7 @@ Three actors can touch an `AWAITING_PAYMENT` order concurrently: an incoming pay
 The net invariant: **`sum(reserved seats) <= capacity` always holds, and every order reaches exactly one terminal state**, regardless of how confirmations, cancels, and sweeps interleave.
 
 > *Note for the dev database: SQLite by default serializes everything, so the above strategy doesn't really apply locally. The real gains will be seen when using a proper DBMS like MySQL or PostgreSQL*
+
+## Avoiding deadlocks
+
+Simply put, we sort all locks in a global order (ticket-type UUID) and acquire them in that order. If it's enough for the dining philosophers, it's enough for us :).

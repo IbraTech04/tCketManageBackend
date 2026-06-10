@@ -96,10 +96,12 @@ class InventoryServiceTest {
     void tryReserveAll_oneTypeSoldOut_returnsFalseWithoutIncrementing() {
         TicketType a = type(10, 3);
         TicketType full = type(5, 5);
-        when(ticketTypeRepository.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
-        when(ticketTypeRepository.findByIdForUpdate(full.getId())).thenReturn(Optional.of(full));
+        // tryReserveAll locks rows in UUID order (deadlock-safe), so which type is checked first is
+        // non-deterministic with random ids — and if 'full' sorts first it short-circuits before 'a'
+        // is ever locked. Stub leniently: the outcome (false, nothing reserved) holds either way.
+        lenient().when(ticketTypeRepository.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+        lenient().when(ticketTypeRepository.findByIdForUpdate(full.getId())).thenReturn(Optional.of(full));
 
-        // LinkedHashMap so 'a' is checked (and found to fit) before 'full' fails the check.
         Map<UUID, Integer> wanted = new LinkedHashMap<>();
         wanted.put(a.getId(), 2);
         wanted.put(full.getId(), 1);

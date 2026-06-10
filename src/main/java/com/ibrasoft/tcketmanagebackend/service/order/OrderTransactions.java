@@ -22,6 +22,8 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -90,8 +92,14 @@ class OrderTransactions {
                 .items(new ArrayList<>())
                 .build();
 
+        // Sort by ticket type UUID to guarantee a consistent lock acquisition order
+        // across concurrent transactions and prevent deadlocks.
+        List<OrderItemRequest> sortedItems = request.getItems().stream()
+                .sorted(Comparator.comparing(OrderItemRequest::getTicketTypeId))
+                .toList();
+
         BigDecimal amountTotal = BigDecimal.ZERO;
-        for (OrderItemRequest itemReq : request.getItems()) {
+        for (OrderItemRequest itemReq : sortedItems) {
             TicketType ticketType = ticketTypeRepository.findById(itemReq.getTicketTypeId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "TicketType not found: " + itemReq.getTicketTypeId()));

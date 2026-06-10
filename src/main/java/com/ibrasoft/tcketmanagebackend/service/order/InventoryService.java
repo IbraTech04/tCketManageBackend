@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -53,8 +54,11 @@ public class InventoryService {
      */
     @Transactional
     public boolean tryReserveAll(Map<UUID, Integer> quantitiesByTicketType) {
+        // Sort by UUID to guarantee a consistent lock acquisition order across concurrent
+        // transactions and prevent deadlocks when callers supply keys in different orders.
+        Map<UUID, Integer> sorted = new TreeMap<>(quantitiesByTicketType);
         Map<UUID, TicketType> locked = new LinkedHashMap<>();
-        for (Map.Entry<UUID, Integer> entry : quantitiesByTicketType.entrySet()) {
+        for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
             TicketType type = lock(entry.getKey());
             locked.put(entry.getKey(), type);
             Integer capacity = type.getCapacity();
@@ -63,7 +67,7 @@ public class InventoryService {
                 return false; // no increments performed yet → nothing to undo
             }
         }
-        for (Map.Entry<UUID, Integer> entry : quantitiesByTicketType.entrySet()) {
+        for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
             TicketType type = locked.get(entry.getKey());
             int reserved = type.getReservedCount() == null ? 0 : type.getReservedCount();
             type.setReservedCount(reserved + entry.getValue());

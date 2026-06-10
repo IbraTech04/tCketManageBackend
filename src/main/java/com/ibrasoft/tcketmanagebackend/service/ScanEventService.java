@@ -9,6 +9,7 @@ import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
+import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.ZoneEntitlement;
 import com.ibrasoft.tcketmanagebackend.model.ticket.event.ScanEvent;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
@@ -56,6 +57,12 @@ public class ScanEventService {
 
     public ScanResult scanTicket(UUID ticketId, UUID zoneId) {
         Ticket ticket = requireTicket(ticketId);
+
+        if (ticket.getStatus() != TicketStatus.ACTIVE) {
+            return new ScanResult(ScanOutcome.NO_ZONE_ENTITLEMENT,
+                String.format("Ticket status is %s, expected ACTIVE", ticket.getStatus()), null);
+        }
+
         Zone zone = requireZone(zoneId);
 
         Optional<ZoneEntitlement> entitlement = findEntitlement(ticket, zoneId);
@@ -144,7 +151,7 @@ public class ScanEventService {
     }
 
     private Ticket requireTicket(UUID ticketId) {
-        return ticketRepository.findById(ticketId)
+        return ticketRepository.findByIdForUpdate(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
     }
 
