@@ -55,6 +55,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
+        <!--
+          OGNL is the expression engine for the standalone (non-Spring) Thymeleaf TemplateEngine that
+          renders the ticket SVG in XML mode. The Thymeleaf starter omits it because Spring's dialect
+          uses SpEL, but our isolated svgTemplateEngine uses the standard dialect, which needs OGNL.
+        -->
+        <dependency>
+            <groupId>ognl</groupId>
+            <artifactId>ognl</artifactId>
+            <version>3.3.4</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -92,13 +102,7 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <scope>runtime</scope>
-        </dependency>
 
-        <!-- PostgreSQL: production datastore (see application-prod.properties + docker-compose). -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>

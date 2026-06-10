@@ -82,7 +82,7 @@ class TicketEmailDeliveryIT {
                                 .build();
 
                 // 3. Generate the QR ticket PNG (intermediate sanity check)
-                byte[] ticketPng = ticketGenerationService.renderTicketPng(ticket, 720, 1280);
+                byte[] ticketPng = ticketGenerationService.renderTicketPng(ticket, 720, 1440);
                 assertNotNull(ticketPng, "Ticket PNG should be rendered");
                 assertTrue(ticketPng.length > 0, "Ticket PNG should not be empty");
 

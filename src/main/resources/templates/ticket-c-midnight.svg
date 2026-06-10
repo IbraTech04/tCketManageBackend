@@ -1,40 +1,103 @@
 <?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" font-family="&#39;Product Sans&#39;, &#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f97316"></stop><stop offset=".55" stop-color="#ea580c"></stop><stop offset="1" stop-color="#ef4444"></stop></linearGradient><radialGradient id="orb" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f97316" stop-opacity=".55"></stop><stop offset="1" stop-color="#f97316" stop-opacity="0"></stop></radialGradient><filter id="sh" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#18181b" flood-opacity="0.18"></feDropShadow></filter><mask id="cm"><rect x="16" y="16" width="328" height="608" rx="22" fill="#fff"></rect><circle cx="16" cy="432" r="13" fill="#000"></circle><circle cx="344" cy="432" r="13" fill="#000"></circle></mask><clipPath id="cc"><rect x="16" y="16" width="328" height="608" rx="22"></rect></clipPath></defs>
-<g mask="url(#cm)" filter="url(#sh)">
-  <rect x="16" y="16" width="328" height="608" rx="22" fill="#17171c"></rect>
-  <g clip-path="url(#cc)">
-    <rect x="16" y="16" width="7" height="608" fill="url(#g)"></rect>
-    <circle cx="324" cy="46" r="110" fill="url(#orb)"></circle>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:th="http://www.thymeleaf.org"
+  viewBox="0 0 360 720"
+  font-family="&#39;Product Sans&#39;, &#39;Helvetica Neue&#39;, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f97316"></stop>
+      <stop offset=".55" stop-color="#ea580c"></stop>
+      <stop offset="1" stop-color="#ef4444"></stop>
+    </linearGradient>
+    <radialGradient id="orb" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#f97316" stop-opacity=".55"></stop>
+      <stop offset="1" stop-color="#f97316" stop-opacity="0"></stop>
+    </radialGradient>
+    <!-- Drop shadow built from primitives Batik supports (it has no feDropShadow). -->
+    <filter id="sh" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9"></feGaussianBlur>
+      <feOffset dx="0" dy="6" result="shadow"></feOffset>
+      <feFlood flood-color="#18181b" flood-opacity="0.18"></feFlood>
+      <feComposite in2="shadow" operator="in"></feComposite>
+      <feMerge>
+        <feMergeNode></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+    <mask id="cm">
+      <rect x="16" y="16" width="328" height="688" rx="22" fill="#fff"></rect>
+      <circle cx="16" cy="432" r="13" fill="#000"></circle>
+      <circle cx="344" cy="432" r="13" fill="#000"></circle>
+    </mask>
+    <clipPath id="cc">
+      <rect x="16" y="16" width="328" height="688" rx="22"></rect>
+    </clipPath>
+  </defs>
+  <g mask="url(#cm)" filter="url(#sh)">
+    <rect x="16" y="16" width="328" height="688" rx="22" fill="#17171c"></rect>
+    <g clip-path="url(#cc)">
+      <rect x="16" y="16" width="7" height="688" fill="url(#g)"></rect>
+      <circle cx="324" cy="46" r="110" fill="url(#orb)"></circle>
+    </g>
   </g>
-</g>
-<g id="logo"><svg x="46" y="35" width="29.7" height="27" viewBox="24 71 1031 938" fill="none" stroke="#fff" stroke-width="52.1" stroke-linecap="round" stroke-linejoin="round"><path d="M227.18,723.26c-26.66-17.25-62.21-17.62-89.75,1.81l-79.02-112c-6.87-9.74-4.52-23.33,5.21-30.2l184.42-130.12"></path><path d="M307.95,410.5L740.97,104.99c9.74-6.87,23.33-4.52,30.2,5.21l79.02,112c-36.16,25.51-44.79,75.5-19.28,111.66,25.51,36.16,75.5,44.79,111.66,19.28l79.02,112c6.87,9.74,4.52,23.33-5.21,30.2"></path><path d="M398.69,501.24h604.99c11.92,0,21.67,9.75,21.67,21.67v137.07c-44.25,0-80.12,35.87-80.12,80.12s35.87,80.12,80.12,80.12c0,0,0,137.07,0,137.07,0,11.92-9.75,21.67-21.67,21.67h-127.27"></path><path d="M774.25,978.95H174.72c-11.92,0-21.67-9.75-21.67-21.67,0,0,0-137.07,0-137.07,44.25,0,80.12-35.87,80.12-80.12s-35.87-80.12-80.12-80.12v-137.07c0-11.92,9.75-21.67,21.67-21.67h121.81"></path><path d="M951.24,932.14c-1.38,0-2.5-1.12-2.5-2.5v-15.59h-15.59c-1.38,0-2.5-1.12-2.5-2.5v-12.34c0-1.38,1.12-2.5,2.5-2.5h15.59v-15.59c0-1.38,1.12-2.5,2.5-2.5h12.34c1.38,0,2.5,1.12,2.5,2.5v15.59h15.69c1.38,0,2.5,1.12,2.5,2.5v12.34c0,1.38-1.12,2.5-2.5,2.5h-15.69v15.59c0,1.38-1.12,2.5-2.5,2.5h-12.34Z" fill="#fff" stroke="none"></path></svg><text x="86" y="57" font-size="15.5" font-weight="700" letter-spacing="-.2" fill="#fff">tCketManage</text></g>
-<g transform="translate(318 0)">
-  <rect x="-92" y="42" width="92" height="22" rx="11" fill="none" stroke="#fff" stroke-opacity=".28"></rect>
-  <text x="-46" y="57" text-anchor="middle" font-size="10" letter-spacing="1.8" fill="#d7d7dc">ADMIT ONE</text>
-</g>
-<g id="eventDetails">
-  <text id="ticketType" x="46" y="150" font-size="11" font-weight="600" letter-spacing="1.6" fill="#ff8a45">FOUNDERS PASS</text>
-  <text id="eventName" x="46" y="186" font-size="28" font-weight="700" letter-spacing="-.4" fill="#fff">Lumen Summit 2026</text>
-</g>
-<g>
-  <text x="46" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">DATE</text><text id="date" x="46" y="270" font-size="15" font-weight="600" fill="#f4f4f5">Fri · Mar 13, 2026</text>
-  <text x="196" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">DOORS</text><text id="time" x="196" y="270" font-size="15" font-weight="600" fill="#f4f4f5">7:30 PM</text>
-  <line x1="46" y1="300" x2="314" y2="300" stroke="#ffffff" stroke-opacity=".09"></line>
-  <text x="46" y="330" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">LOCATION</text>
-  <text id="location" x="46" y="350" font-size="15" font-weight="600" fill="#f4f4f5">The Glasshouse</text>
-  <text x="46" y="367" font-size="11.5" fill="#9a9aa3">123 Event Street, City</text>
-  <g id="seatDetails"><text x="196" y="330" font-size="9.5" font-weight="600" letter-spacing="0.4" fill="#7e7e87">SECTION</text><text id="section" x="196" y="350" font-size="15" font-weight="700" fill="#fff">1</text><text x="250" y="330" font-size="9.5" font-weight="600" letter-spacing="0.4" fill="#7e7e87">ROW</text><text id="row" x="250" y="350" font-size="15" font-weight="700" fill="#fff">C</text><text x="292" y="330" font-size="9.5" font-weight="600" letter-spacing="0.4" fill="#7e7e87">SEAT</text><text id="seat" x="292" y="350" font-size="15" font-weight="700" fill="#fff">8</text></g>
-  <line x1="46" y1="397" x2="314" y2="397" stroke="#ffffff" stroke-opacity=".09"></line>
-  <g id="attendeeDetails">
-    <text x="46" y="421" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">TICKET HOLDER</text><text id="fullName" x="314" y="421" text-anchor="end" font-size="14" font-weight="600" fill="#fff">Jordan A. Rivera</text>
+  <g id="logo">
+    <svg x="46" y="35" width="29.7" height="27" viewBox="24 71 1031 938" fill="none" stroke="#fff"
+      stroke-width="52.1" stroke-linecap="round" stroke-linejoin="round">
+      <path
+        d="M227.18,723.26c-26.66-17.25-62.21-17.62-89.75,1.81l-79.02-112c-6.87-9.74-4.52-23.33,5.21-30.2l184.42-130.12"></path>
+      <path
+        d="M307.95,410.5L740.97,104.99c9.74-6.87,23.33-4.52,30.2,5.21l79.02,112c-36.16,25.51-44.79,75.5-19.28,111.66,25.51,36.16,75.5,44.79,111.66,19.28l79.02,112c6.87,9.74,4.52,23.33-5.21,30.2"></path>
+      <path
+        d="M398.69,501.24h604.99c11.92,0,21.67,9.75,21.67,21.67v137.07c-44.25,0-80.12,35.87-80.12,80.12s35.87,80.12,80.12,80.12c0,0,0,137.07,0,137.07,0,11.92-9.75,21.67-21.67,21.67h-127.27"></path>
+      <path
+        d="M774.25,978.95H174.72c-11.92,0-21.67-9.75-21.67-21.67,0,0,0-137.07,0-137.07,44.25,0,80.12-35.87,80.12-80.12s-35.87-80.12-80.12-80.12v-137.07c0-11.92,9.75-21.67,21.67-21.67h121.81"></path>
+      <path
+        d="M951.24,932.14c-1.38,0-2.5-1.12-2.5-2.5v-15.59h-15.59c-1.38,0-2.5-1.12-2.5-2.5v-12.34c0-1.38,1.12-2.5,2.5-2.5h15.59v-15.59c0-1.38,1.12-2.5,2.5-2.5h12.34c1.38,0,2.5,1.12,2.5,2.5v15.59h15.69c1.38,0,2.5,1.12,2.5,2.5v12.34c0,1.38-1.12,2.5-2.5,2.5h-15.69v15.59c0,1.38-1.12,2.5-2.5,2.5h-12.34Z"
+        fill="#fff" stroke="none"></path>
+    </svg>
+    <text x="86" y="57" font-size="15.5" font-weight="700" letter-spacing="-.2" fill="#fff">
+      tCketManage</text>
   </g>
-</g>
-<line x1="31" y1="432" x2="329" y2="432" stroke="#ffffff" stroke-opacity=".15" stroke-width="1.5" stroke-dasharray="1 6" stroke-linecap="round"></line>
-<g id="qrSection">
-  <rect x="90" y="440" width="180" height="172" rx="18" fill="#ffffff"></rect>
-  <g id="qrCode" transform="translate(111 448) scale(5.520)" style="--qrfg:#17171c;--qrbg:#ffffff"><g shape-rendering="crispEdges"><g fill="var(--qrfg)"><rect x="7" y="0" width="1" height="1"></rect><rect x="14" y="0" width="1" height="1"></rect><rect x="15" y="0" width="1" height="1"></rect><rect x="7" y="1" width="1" height="1"></rect><rect x="8" y="1" width="1" height="1"></rect><rect x="9" y="1" width="1" height="1"></rect><rect x="14" y="1" width="1" height="1"></rect><rect x="7" y="2" width="1" height="1"></rect><rect x="14" y="2" width="1" height="1"></rect><rect x="16" y="2" width="1" height="1"></rect><rect x="13" y="3" width="1" height="1"></rect><rect x="14" y="3" width="1" height="1"></rect><rect x="15" y="3" width="1" height="1"></rect><rect x="17" y="3" width="1" height="1"></rect><rect x="7" y="4" width="1" height="1"></rect><rect x="11" y="4" width="1" height="1"></rect><rect x="12" y="4" width="1" height="1"></rect><rect x="14" y="4" width="1" height="1"></rect><rect x="7" y="5" width="1" height="1"></rect><rect x="8" y="5" width="1" height="1"></rect><rect x="10" y="5" width="1" height="1"></rect><rect x="12" y="5" width="1" height="1"></rect><rect x="14" y="5" width="1" height="1"></rect><rect x="16" y="5" width="1" height="1"></rect><rect x="17" y="5" width="1" height="1"></rect><rect x="7" y="6" width="1" height="1"></rect><rect x="8" y="6" width="1" height="1"></rect><rect x="9" y="6" width="1" height="1"></rect><rect x="10" y="6" width="1" height="1"></rect><rect x="13" y="6" width="1" height="1"></rect><rect x="14" y="6" width="1" height="1"></rect><rect x="15" y="6" width="1" height="1"></rect><rect x="16" y="6" width="1" height="1"></rect><rect x="0" y="7" width="1" height="1"></rect><rect x="1" y="7" width="1" height="1"></rect><rect x="6" y="7" width="1" height="1"></rect><rect x="7" y="7" width="1" height="1"></rect><rect x="9" y="7" width="1" height="1"></rect><rect x="10" y="7" width="1" height="1"></rect><rect x="14" y="7" width="1" height="1"></rect><rect x="15" y="7" width="1" height="1"></rect><rect x="19" y="7" width="1" height="1"></rect><rect x="21" y="7" width="1" height="1"></rect><rect x="22" y="7" width="1" height="1"></rect><rect x="23" y="7" width="1" height="1"></rect><rect x="0" y="8" width="1" height="1"></rect><rect x="6" y="8" width="1" height="1"></rect><rect x="9" y="8" width="1" height="1"></rect><rect x="10" y="8" width="1" height="1"></rect><rect x="12" y="8" width="1" height="1"></rect><rect x="15" y="8" width="1" height="1"></rect><rect x="17" y="8" width="1" height="1"></rect><rect x="19" y="8" width="1" height="1"></rect><rect x="20" y="8" width="1" height="1"></rect><rect x="22" y="8" width="1" height="1"></rect><rect x="0" y="9" width="1" height="1"></rect><rect x="3" y="9" width="1" height="1"></rect><rect x="4" y="9" width="1" height="1"></rect><rect x="7" y="9" width="1" height="1"></rect><rect x="8" y="9" width="1" height="1"></rect><rect x="9" y="9" width="1" height="1"></rect><rect x="11" y="9" width="1" height="1"></rect><rect x="16" y="9" width="1" height="1"></rect><rect x="20" y="9" width="1" height="1"></rect><rect x="21" y="9" width="1" height="1"></rect><rect x="0" y="10" width="1" height="1"></rect><rect x="12" y="10" width="1" height="1"></rect><rect x="15" y="10" width="1" height="1"></rect><rect x="16" y="10" width="1" height="1"></rect><rect x="17" y="10" width="1" height="1"></rect><rect x="20" y="10" width="1" height="1"></rect><rect x="21" y="10" width="1" height="1"></rect><rect x="23" y="10" width="1" height="1"></rect><rect x="2" y="11" width="1" height="1"></rect><rect x="5" y="11" width="1" height="1"></rect><rect x="6" y="11" width="1" height="1"></rect><rect x="13" y="11" width="1" height="1"></rect><rect x="16" y="11" width="1" height="1"></rect><rect x="17" y="11" width="1" height="1"></rect><rect x="19" y="11" width="1" height="1"></rect><rect x="20" y="11" width="1" height="1"></rect><rect x="21" y="11" width="1" height="1"></rect><rect x="0" y="12" width="1" height="1"></rect><rect x="1" y="12" width="1" height="1"></rect><rect x="6" y="12" width="1" height="1"></rect><rect x="9" y="12" width="1" height="1"></rect><rect x="11" y="12" width="1" height="1"></rect><rect x="12" y="12" width="1" height="1"></rect><rect x="16" y="12" width="1" height="1"></rect><rect x="19" y="12" width="1" height="1"></rect><rect x="20" y="12" width="1" height="1"></rect><rect x="21" y="12" width="1" height="1"></rect><rect x="23" y="12" width="1" height="1"></rect><rect x="0" y="13" width="1" height="1"></rect><rect x="6" y="13" width="1" height="1"></rect><rect x="11" y="13" width="1" height="1"></rect><rect x="12" y="13" width="1" height="1"></rect><rect x="13" y="13" width="1" height="1"></rect><rect x="14" y="13" width="1" height="1"></rect><rect x="16" y="13" width="1" height="1"></rect><rect x="20" y="13" width="1" height="1"></rect><rect x="22" y="13" width="1" height="1"></rect><rect x="23" y="13" width="1" height="1"></rect><rect x="24" y="13" width="1" height="1"></rect><rect x="0" y="14" width="1" height="1"></rect><rect x="4" y="14" width="1" height="1"></rect><rect x="5" y="14" width="1" height="1"></rect><rect x="6" y="14" width="1" height="1"></rect><rect x="7" y="14" width="1" height="1"></rect><rect x="8" y="14" width="1" height="1"></rect><rect x="10" y="14" width="1" height="1"></rect><rect x="11" y="14" width="1" height="1"></rect><rect x="12" y="14" width="1" height="1"></rect><rect x="15" y="14" width="1" height="1"></rect><rect x="16" y="14" width="1" height="1"></rect><rect x="18" y="14" width="1" height="1"></rect><rect x="20" y="14" width="1" height="1"></rect><rect x="21" y="14" width="1" height="1"></rect><rect x="22" y="14" width="1" height="1"></rect><rect x="23" y="14" width="1" height="1"></rect><rect x="24" y="14" width="1" height="1"></rect><rect x="2" y="15" width="1" height="1"></rect><rect x="4" y="15" width="1" height="1"></rect><rect x="7" y="15" width="1" height="1"></rect><rect x="9" y="15" width="1" height="1"></rect><rect x="11" y="15" width="1" height="1"></rect><rect x="13" y="15" width="1" height="1"></rect><rect x="14" y="15" width="1" height="1"></rect><rect x="16" y="15" width="1" height="1"></rect><rect x="18" y="15" width="1" height="1"></rect><rect x="19" y="15" width="1" height="1"></rect><rect x="20" y="15" width="1" height="1"></rect><rect x="21" y="15" width="1" height="1"></rect><rect x="22" y="15" width="1" height="1"></rect><rect x="24" y="15" width="1" height="1"></rect><rect x="2" y="16" width="1" height="1"></rect><rect x="3" y="16" width="1" height="1"></rect><rect x="4" y="16" width="1" height="1"></rect><rect x="5" y="16" width="1" height="1"></rect><rect x="9" y="16" width="1" height="1"></rect><rect x="10" y="16" width="1" height="1"></rect><rect x="13" y="16" width="1" height="1"></rect><rect x="15" y="16" width="1" height="1"></rect><rect x="17" y="16" width="1" height="1"></rect><rect x="19" y="16" width="1" height="1"></rect><rect x="20" y="16" width="1" height="1"></rect><rect x="1" y="17" width="1" height="1"></rect><rect x="3" y="17" width="1" height="1"></rect><rect x="4" y="17" width="1" height="1"></rect><rect x="5" y="17" width="1" height="1"></rect><rect x="8" y="17" width="1" height="1"></rect><rect x="9" y="17" width="1" height="1"></rect><rect x="14" y="17" width="1" height="1"></rect><rect x="17" y="17" width="1" height="1"></rect><rect x="18" y="17" width="1" height="1"></rect><rect x="19" y="17" width="1" height="1"></rect><rect x="7" y="18" width="1" height="1"></rect><rect x="9" y="18" width="1" height="1"></rect><rect x="13" y="18" width="1" height="1"></rect><rect x="15" y="18" width="1" height="1"></rect><rect x="17" y="18" width="1" height="1"></rect><rect x="19" y="18" width="1" height="1"></rect><rect x="20" y="18" width="1" height="1"></rect><rect x="22" y="18" width="1" height="1"></rect><rect x="23" y="18" width="1" height="1"></rect><rect x="7" y="19" width="1" height="1"></rect><rect x="9" y="19" width="1" height="1"></rect><rect x="12" y="19" width="1" height="1"></rect><rect x="13" y="19" width="1" height="1"></rect><rect x="16" y="19" width="1" height="1"></rect><rect x="21" y="19" width="1" height="1"></rect><rect x="22" y="19" width="1" height="1"></rect><rect x="7" y="20" width="1" height="1"></rect><rect x="9" y="20" width="1" height="1"></rect><rect x="16" y="20" width="1" height="1"></rect><rect x="20" y="20" width="1" height="1"></rect><rect x="22" y="20" width="1" height="1"></rect><rect x="23" y="20" width="1" height="1"></rect><rect x="24" y="20" width="1" height="1"></rect><rect x="7" y="21" width="1" height="1"></rect><rect x="9" y="21" width="1" height="1"></rect><rect x="10" y="21" width="1" height="1"></rect><rect x="11" y="21" width="1" height="1"></rect><rect x="12" y="21" width="1" height="1"></rect><rect x="16" y="21" width="1" height="1"></rect><rect x="18" y="21" width="1" height="1"></rect><rect x="19" y="21" width="1" height="1"></rect><rect x="20" y="21" width="1" height="1"></rect><rect x="21" y="21" width="1" height="1"></rect><rect x="22" y="21" width="1" height="1"></rect><rect x="24" y="21" width="1" height="1"></rect><rect x="8" y="22" width="1" height="1"></rect><rect x="9" y="22" width="1" height="1"></rect><rect x="10" y="22" width="1" height="1"></rect><rect x="12" y="22" width="1" height="1"></rect><rect x="13" y="22" width="1" height="1"></rect><rect x="15" y="22" width="1" height="1"></rect><rect x="17" y="22" width="1" height="1"></rect><rect x="20" y="22" width="1" height="1"></rect><rect x="24" y="22" width="1" height="1"></rect><rect x="7" y="23" width="1" height="1"></rect><rect x="8" y="23" width="1" height="1"></rect><rect x="9" y="23" width="1" height="1"></rect><rect x="12" y="23" width="1" height="1"></rect><rect x="13" y="23" width="1" height="1"></rect><rect x="14" y="23" width="1" height="1"></rect><rect x="18" y="23" width="1" height="1"></rect><rect x="19" y="23" width="1" height="1"></rect><rect x="23" y="23" width="1" height="1"></rect><rect x="9" y="24" width="1" height="1"></rect><rect x="10" y="24" width="1" height="1"></rect><rect x="11" y="24" width="1" height="1"></rect><rect x="12" y="24" width="1" height="1"></rect><rect x="14" y="24" width="1" height="1"></rect><rect x="15" y="24" width="1" height="1"></rect><rect x="21" y="24" width="1" height="1"></rect><rect x="24" y="24" width="1" height="1"></rect></g><rect x="0" y="0" width="7" height="7" rx="1.6" fill="var(--qrfg)"></rect><rect x="1" y="1" width="5" height="5" rx="1" fill="var(--qrbg)"></rect><rect x="2" y="2" width="3" height="3" rx="0.6" fill="var(--qrfg)"></rect><rect x="18" y="0" width="7" height="7" rx="1.6" fill="var(--qrfg)"></rect><rect x="19" y="1" width="5" height="5" rx="1" fill="var(--qrbg)"></rect><rect x="20" y="2" width="3" height="3" rx="0.6" fill="var(--qrfg)"></rect><rect x="0" y="18" width="7" height="7" rx="1.6" fill="var(--qrfg)"></rect><rect x="1" y="19" width="5" height="5" rx="1" fill="var(--qrbg)"></rect><rect x="2" y="20" width="3" height="3" rx="0.6" fill="var(--qrfg)"></rect></g></g>
-  <text x="180" y="600" text-anchor="middle" font-size="10.5" font-weight="700" letter-spacing="1.2" fill="#17171c">SCAN TO VERIFY</text>
-  <text id="footer" x="180" y="620" text-anchor="middle" font-size="9.5" letter-spacing=".3" fill="#5b5b63">Powered by tCketManage · Present at entry</text>
-</g>
+  <g transform="translate(318 0)">
+    <rect x="-92" y="42" width="92" height="22" rx="11" fill="none" stroke="#fff"
+      stroke-opacity=".28"></rect>
+    <text x="-46" y="57" text-anchor="middle" font-size="10" letter-spacing="1.8" fill="#d7d7dc">ADMIT
+      ONE</text>
+  </g>
+  <g id="eventDetails">
+    <text id="ticketType" x="46" y="150" font-size="11" font-weight="600" letter-spacing="1.6"
+      fill="#ff8a45" th:text="${ticketType}">FOUNDERS PASS</text>
+    <text id="eventName" x="46" y="186" font-size="28" font-weight="700" letter-spacing="-.4"
+      fill="#fff" th:text="${eventName}">Lumen Summit 2026</text>
+  </g>
+  <g>
+    <text x="46" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">DATE</text>
+    <text id="date" x="46" y="270" font-size="15" font-weight="600" fill="#f4f4f5"
+      th:text="${eventDate}">Fri · Mar 13, 2026</text>
+    <text x="196" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">
+      DOORS</text>
+    <text id="time" x="196" y="270" font-size="15" font-weight="600" fill="#f4f4f5"
+      th:text="${eventTime}">7:30 PM</text>
+    <line x1="46" y1="300" x2="314" y2="300" stroke="#ffffff" stroke-opacity=".09"></line>
+    <text x="46" y="330" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">
+      LOCATION</text>
+    <text id="location" x="46" y="350" font-size="15" font-weight="600" fill="#f4f4f5"
+      th:text="${location}">The Glasshouse</text>
+    <text id="locationDetail" x="46" y="367" font-size="11.5" fill="#9a9aa3"
+      th:text="${locationDetail}">123 Event Street, City</text>
+    <line x1="46" y1="397" x2="314" y2="397" stroke="#ffffff" stroke-opacity=".09"></line>
+    <g id="attendeeDetails">
+      <text x="46" y="421" font-size="10.5" font-weight="600" letter-spacing="1.4" fill="#7e7e87">TICKET
+        HOLDER</text>
+      <text id="fullName" x="314" y="421" text-anchor="end" font-size="14" font-weight="600"
+        fill="#fff" th:text="${fullName}">Jordan A. Rivera</text>
+    </g>
+  </g>
+  <line x1="31" y1="432" x2="329" y2="432" stroke="#ffffff" stroke-opacity=".15" stroke-width="1.5"
+    stroke-dasharray="1 6" stroke-linecap="round"></line>
+  <g id="qrSection">
+    <rect x="66" y="450" width="228" height="222" rx="20" fill="#ffffff"></rect>
+    <g id="qrCode" th:utext="${qrCode}"></g>
+    <text id="footer" x="180" y="692" text-anchor="middle" font-size="9.5" letter-spacing=".3"
+      fill="#5b5b63">Powered by tCketManage</text>
+  </g>
 </svg>

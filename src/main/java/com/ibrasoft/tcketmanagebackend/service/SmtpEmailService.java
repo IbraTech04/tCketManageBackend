@@ -39,7 +39,8 @@ public class SmtpEmailService implements EmailService {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
     private static final String TEMPLATE_NAME = "ticketEmail";
     private static final int TICKET_WIDTH = 720;
-    private static final int TICKET_HEIGHT = 1280;
+    // 1:2 to match the template's 360x720 (18:9) viewBox, so the PNG isn't distorted.
+    private static final int TICKET_HEIGHT = 1440;
 
     private final JavaMailSender mailSender;
     private final SpringTemplateEngine templateEngine;

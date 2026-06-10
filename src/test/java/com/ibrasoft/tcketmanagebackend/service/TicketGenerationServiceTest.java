@@ -7,15 +7,14 @@ import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.w3c.dom.Document;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
-import java.io.InputStream;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,17 +28,16 @@ class TicketGenerationServiceTest {
     @Mock
     private CryptoService cryptoService;
 
-    @InjectMocks
     private TicketGenerationService ticketGenerationService;
 
     private Ticket mockTicket;
     private Event mockEvent;
     private TicketType mockTicketType;
-    private Document svgDocument;
 
     @BeforeEach
     void setUp() throws Exception {
-        // Create mock event
+        ticketGenerationService = new TicketGenerationService(cryptoService, svgTemplateEngine());
+
         mockEvent = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Sacred Commitments")
@@ -48,14 +46,11 @@ class TicketGenerationServiceTest {
                 .time(LocalDateTime.of(2025, 10, 15, 14, 30))
                 .build();
 
-        // Create mock ticket type - General Admission
         mockTicketType = TicketType.builder()
                 .id(UUID.randomUUID())
                 .name("General Admission")
-                 // Binary: 011 (access to zones 0 and 1)
                 .build();
 
-        // Create mock ticket
         mockTicket = Ticket.builder()
                 .ID(UUID.randomUUID())
                 .firstName("Ibrahim")
@@ -65,274 +60,101 @@ class TicketGenerationServiceTest {
                 .ticketType(mockTicketType)
                 .build();
 
-        // Load the SVG template
-        loadSvgTemplate();
-
-        // Setup crypto service mocks
-        setupCryptoServiceMocks();
+        lenient().when(cryptoService.sign(any(TicketQRData.class))).thenReturn("mocked-qr-token");
     }
 
     @Test
-    void testGenerateQRCodeSVG() throws Exception {
-        // Test QR code generation
-        String qrData = "TestQRData";
-        String qrCodeSvg = ticketGenerationService.generateQRCodeSVG(qrData, 120);
+    void generateQRCodeSVG_producesPositionedModuleGroup() throws Exception {
+        String qr = ticketGenerationService.generateQRCodeSVG(mockTicket);
 
-        assertNotNull(qrCodeSvg);
-        assertTrue(qrCodeSvg.contains("<g id=\"qrCode\""));
-        assertTrue(qrCodeSvg.contains("<rect"));
-        assertTrue(qrCodeSvg.contains("fill=\"black\""));
-        assertTrue(qrCodeSvg.contains("</g>"));
-
-        System.out.println("Generated QR Code SVG length: " + qrCodeSvg.length() + " characters");
-    }
-
-    @Test
-    void testReplaceTextFields() throws Exception {
-        // Test the main functionality
-        assertDoesNotThrow(() -> {
-            ticketGenerationService.replaceTextFields(svgDocument, mockTicket);
-        });
-
-        // Verify that the document has been modified
-        assertNotNull(svgDocument);
+        assertNotNull(qr);
+        assertTrue(qr.startsWith("<g"), "QR fragment should be a <g> group");
+        assertTrue(qr.contains("transform=\"translate("), "QR group should carry its own placement transform");
+        assertTrue(qr.contains("<rect"));
+        assertTrue(qr.contains("fill=\"#17171c\""));
+        assertTrue(qr.endsWith("</g>"));
 
         verify(cryptoService, times(1)).sign(any(TicketQRData.class));
-
-        System.out.println("Text fields replacement completed successfully");
     }
 
     @Test
-    void testCompleteTicketGenerationAndSavePNG() throws Exception {
-        // This is the main test that generates a complete ticket and saves it as PNG
+    void renderTicketSvg_fillsTemplateFieldsAndInjectsQr() throws Exception {
+        String svg = ticketGenerationService.renderTicketSvg(mockTicket);
 
-        // Process the ticket
-        ticketGenerationService.replaceTextFields(svgDocument, mockTicket);
+        assertNotNull(svg);
+        assertTrue(svg.contains("Sacred Commitments"), "event name should be rendered");
+        assertTrue(svg.contains("Ibrahim Chehab"), "ticket holder full name should be rendered");
+        assertTrue(svg.contains("General Admission"), "ticket type should be rendered");
+        assertTrue(svg.contains("IB 120"), "location should be rendered");
+        // QR modules were injected via th:utext, not left as the template's sample markup
+        assertTrue(svg.contains("fill=\"#17171c\""), "QR modules should be injected into the SVG");
+        assertFalse(svg.contains("Lumen Summit 2026"), "sample placeholder text should be overwritten");
 
-        // Convert directly to PNG using the service method
+        verify(cryptoService, times(1)).sign(any(TicketQRData.class));
+    }
+
+    @Test
+    void renderTicketPng_writesNonEmptyPngBytes() throws Exception {
+        byte[] png = ticketGenerationService.renderTicketPng(mockTicket, 720, 1440);
+
+        assertNotNull(png);
+        assertTrue(png.length > 0, "PNG output should not be empty");
+        // PNG magic number: 0x89 'P' 'N' 'G'
+        assertEquals((byte) 0x89, png[0]);
+        assertEquals((byte) 'P', png[1]);
+        assertEquals((byte) 'N', png[2]);
+        assertEquals((byte) 'G', png[3]);
+
         File outputPngFile = new File("target/test-output-ticket-general-admission.png");
-        outputPngFile.getParentFile().mkdirs(); // Ensure directory exists
-
-        ticketGenerationService.convertToPng(svgDocument, outputPngFile.getAbsolutePath(), 720, 1280);
-
-        // Verify the PNG file was created
-        assertTrue(outputPngFile.exists(), "Output PNG file should be created");
-        assertTrue(outputPngFile.length() > 0, "Output PNG file should not be empty");
-
-        System.out.println("Generated PNG ticket (General Admission) saved to: " + outputPngFile.getAbsolutePath());
-        System.out.println("PNG file size: " + outputPngFile.length() + " bytes");
+        outputPngFile.getParentFile().mkdirs();
+        Files.write(outputPngFile.toPath(), png);
+        assertTrue(outputPngFile.exists() && outputPngFile.length() > 0);
     }
 
     @Test
-    void testVIPTicketGeneration() throws Exception {
-        // Create VIP ticket type with more zone permissions
-        TicketType vipTicketType = TicketType.builder()
-                .id(UUID.randomUUID())
-                .name("VIP")
-                 // Binary: 1111 (access to zones 0, 1, 2, 3)
-                .build();
-
-        Ticket vipTicket = Ticket.builder()
-                .ID(UUID.randomUUID())
-                .firstName("Sarah")
-                .lastName("Wilson")
-                .email("sarah.wilson@example.com")
-                .event(mockEvent)
-                .ticketType(vipTicketType)
-                .build();
-
-        // Load fresh template
-        loadSvgTemplate();
-
-        // Process the VIP ticket
-        ticketGenerationService.replaceTextFields(svgDocument, vipTicket);
-
-        // Save VIP ticket as PNG
-        File vipPngFile = new File("target/test-output-ticket-vip.png");
-        ticketGenerationService.convertToPng(svgDocument, vipPngFile.getAbsolutePath(), 720, 1280);
-
-        assertTrue(vipPngFile.exists(), "VIP ticket PNG should be created");
-        assertTrue(vipPngFile.length() > 0, "VIP ticket PNG should not be empty");
-
-        System.out.println("Generated VIP ticket PNG: " + vipPngFile.getAbsolutePath());
-    }
-
-    @Test
-    void testStudentTicketGeneration() throws Exception {
-        // Create Student ticket type with limited permissions
-        TicketType studentTicketType = TicketType.builder()
-                .id(UUID.randomUUID())
-                .name("Student")
-                 // Binary: 001 (access to zone 0 only - Main Entrance)
-                .build();
-
-        Ticket studentTicket = Ticket.builder()
-                .ID(UUID.randomUUID())
-                .firstName("Alex")
-                .lastName("Johnson")
-                .email("alex.johnson@university.edu")
-                .event(mockEvent)
-                .ticketType(studentTicketType)
-                .build();
-
-        // Load fresh template
-        loadSvgTemplate();
-
-        // Process the student ticket
-        ticketGenerationService.replaceTextFields(svgDocument, studentTicket);
-
-        // Save student ticket as PNG
-        File studentPngFile = new File("target/test-output-ticket-student.png");
-        ticketGenerationService.convertToPng(svgDocument, studentPngFile.getAbsolutePath(), 720, 1280);
-
-        assertTrue(studentPngFile.exists(), "Student ticket PNG should be created");
-        assertTrue(studentPngFile.length() > 0, "Student ticket PNG should not be empty");
-
-        System.out.println("Generated Student ticket PNG: " + studentPngFile.getAbsolutePath());
-    }
-
-    @Test
-    void testWithNullTicketType() throws Exception {
-        // Test with a ticket that has null ticket type
+    void renderTicketSvg_withNullTicketType_doesNotThrow() throws Exception {
         Ticket incompleteTicket = Ticket.builder()
                 .ID(UUID.randomUUID())
                 .firstName("Jane")
                 .lastName("Doe")
                 .email("jane@example.com")
                 .event(mockEvent)
-                .ticketType(null) // Null ticket type
+                .ticketType(null)
                 .build();
 
-        // Should handle gracefully even with null ticket type
-        assertDoesNotThrow(() -> {
-            ticketGenerationService.replaceTextFields(svgDocument, incompleteTicket);
-        });
-
-        // Convert to PNG
-        File outputPngFile = new File("target/test-output-ticket-no-type.png");
-        outputPngFile.getParentFile().mkdirs();
-
-        ticketGenerationService.convertToPng(svgDocument, outputPngFile.getAbsolutePath(), 720, 1280);
-
-        assertTrue(outputPngFile.exists());
-        assertTrue(outputPngFile.length() > 0);
-        System.out.println("Ticket without type PNG saved to: " + outputPngFile.getAbsolutePath());
+        String svg = assertDoesNotThrow(() -> ticketGenerationService.renderTicketSvg(incompleteTicket));
+        assertTrue(svg.contains("Jane Doe"));
     }
 
     @Test
-    void testCompleteWorkflowWithMultipleTicketTypes() throws Exception {
-        // Create different ticket types
-        TicketType[] ticketTypes = {
-            TicketType.builder().id(UUID.randomUUID()).name("General Admission").build(),
-            TicketType.builder().id(UUID.randomUUID()).name("VIP").build(),
-            TicketType.builder().id(UUID.randomUUID()).name("Student").build(),
-            TicketType.builder().id(UUID.randomUUID()).name("Press").build() // Access to zones 0,1,2
-        };
-
-        // Test generating tickets for each type
-        Ticket[] tickets = {
-            Ticket.builder().ID(UUID.randomUUID()).firstName("Alice").lastName("Smith")
-                    .email("alice@example.com").event(mockEvent).ticketType(ticketTypes[0]).build(),
-            Ticket.builder().ID(UUID.randomUUID()).firstName("Bob").lastName("Johnson")
-                    .email("bob@example.com").event(mockEvent).ticketType(ticketTypes[1]).build(),
-            Ticket.builder().ID(UUID.randomUUID()).firstName("Charlie").lastName("Brown")
-                    .email("charlie@example.com").event(mockEvent).ticketType(ticketTypes[2]).build(),
-            Ticket.builder().ID(UUID.randomUUID()).firstName("Diana").lastName("Press")
-                    .email("diana@newsagency.com").event(mockEvent).ticketType(ticketTypes[3]).build()
-        };
-
-        for (int i = 0; i < tickets.length; i++) {
-            // Load fresh SVG template for each ticket
-            loadSvgTemplate();
-
-            // Process the ticket
-            ticketGenerationService.replaceTextFields(svgDocument, tickets[i]);
-
-            // Save as PNG with ticket type in filename
-            String ticketTypeName = tickets[i].getTicketType().getName().toLowerCase().replace(" ", "-");
-            File pngFile = new File("target/test-output-ticket-" + ticketTypeName + "-" + (i + 1) + ".png");
-            ticketGenerationService.convertToPng(svgDocument, pngFile.getAbsolutePath(), 720, 1280);
-
-            assertTrue(pngFile.exists(), "PNG file should be created for " + ticketTypeName + " ticket");
-            assertTrue(pngFile.length() > 0, "PNG file should not be empty for " + ticketTypeName + " ticket");
-
-            System.out.println("Generated " + tickets[i].getTicketType().getName() + " ticket PNG: " + pngFile.getAbsolutePath());
-        }
-
-        verify(cryptoService, times(tickets.length)).sign(any(TicketQRData.class));
-    }
-
-    @Test
-    void testTicketTypeZonePermissionsInQRData() throws Exception {
-        // Test that different ticket types generate different QR codes due to different permissions
-
-        // Create two tickets with same person but different ticket types
-        TicketType basicType = TicketType.builder()
-                .id(UUID.randomUUID())
-                .name("Basic")
-                 // Zone 0 only
-                .build();
-
-        TicketType premiumType = TicketType.builder()
-                .id(UUID.randomUUID())
-                .name("Premium")
-                 // Zones 0,1,2,3,4
-                .build();
-
-        Ticket basicTicket = Ticket.builder()
+    void renderTicketSvg_differentTickets_produceDistinctOutput() throws Exception {
+        Ticket vipTicket = Ticket.builder()
                 .ID(UUID.randomUUID())
-                .firstName("John")
-                .lastName("Doe")
-                .email("john@example.com")
+                .firstName("Sarah")
+                .lastName("Wilson")
+                .email("sarah.wilson@example.com")
                 .event(mockEvent)
-                .ticketType(basicType)
+                .ticketType(TicketType.builder().id(UUID.randomUUID()).name("VIP").build())
                 .build();
 
-        Ticket premiumTicket = Ticket.builder()
-                .ID(UUID.randomUUID())
-                .firstName("John")
-                .lastName("Doe")
-                .email("john@example.com")
-                .event(mockEvent)
-                .ticketType(premiumType)
-                .build();
+        String svgA = ticketGenerationService.renderTicketSvg(mockTicket);
+        String svgB = ticketGenerationService.renderTicketSvg(vipTicket);
 
-        // Process both tickets
-        loadSvgTemplate();
-        ticketGenerationService.replaceTextFields(svgDocument, basicTicket);
-        File basicPng = new File("target/test-output-ticket-basic-permissions.png");
-        ticketGenerationService.convertToPng(svgDocument, basicPng.getAbsolutePath(), 720, 1280);
-
-        loadSvgTemplate();
-        ticketGenerationService.replaceTextFields(svgDocument, premiumTicket);
-        File premiumPng = new File("target/test-output-ticket-premium-permissions.png");
-        ticketGenerationService.convertToPng(svgDocument, premiumPng.getAbsolutePath(), 720, 1280);
-
-        // Both files should exist
-        assertTrue(basicPng.exists() && basicPng.length() > 0);
-        assertTrue(premiumPng.exists() && premiumPng.length() > 0);
-
-        System.out.println("Basic ticket (Zone 0 only): " + basicPng.getAbsolutePath());
-        System.out.println("Premium ticket (Zones 0-4): " + premiumPng.getAbsolutePath());
-
-        verify(cryptoService, times(2)).sign(any(TicketQRData.class));
+        assertNotEquals(svgA, svgB);
+        assertTrue(svgB.contains("Sarah Wilson"));
+        assertTrue(svgB.contains("VIP"));
     }
 
-    private void loadSvgTemplate() throws Exception {
-        // Load the SVG template from resources
-        InputStream svgStream = getClass().getClassLoader()
-                .getResourceAsStream("templates/ticketTemplate.svg");
+    /** Mirrors {@code SvgTemplateConfig} so the test exercises the same XML rendering path. */
+    private static TemplateEngine svgTemplateEngine() {
+        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/");
+        resolver.setSuffix(".svg");
+        resolver.setTemplateMode(TemplateMode.XML);
+        resolver.setCharacterEncoding("UTF-8");
 
-        assertNotNull(svgStream, "SVG template should be found in resources");
-
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        svgDocument = builder.parse(svgStream);
-        svgStream.close();
-    }
-
-    private void setupCryptoServiceMocks() throws Exception {
-        lenient().when(cryptoService.sign(any(TicketQRData.class))).thenReturn("mocked-qr-token");
+        TemplateEngine engine = new TemplateEngine();
+        engine.setTemplateResolver(resolver);
+        return engine;
     }
 }

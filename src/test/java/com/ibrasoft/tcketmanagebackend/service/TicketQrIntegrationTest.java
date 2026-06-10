@@ -8,12 +8,10 @@ import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.time.LocalDateTime;
@@ -168,30 +166,37 @@ class TicketQrIntegrationTest {
     class Generation {
 
         private TicketGenerationService generationService;
-        private Document svgDocument;
 
         @BeforeEach
-        void setUp() throws Exception {
-            generationService = new TicketGenerationService(cryptoService);
-            svgDocument = loadSvgTemplate();
+        void setUp() {
+            generationService = new TicketGenerationService(cryptoService, svgTemplateEngine());
         }
 
         @Test
-        void replaceTextFields_withRealCrypto_doesNotThrow() {
-            assertDoesNotThrow(() -> generationService.replaceTextFields(svgDocument, ticket));
+        void renderTicketSvg_withRealCrypto_doesNotThrow() {
+            assertDoesNotThrow(() -> generationService.renderTicketSvg(ticket));
         }
 
         @Test
-        void replaceTextFields_withRealCrypto_populatesQrGroup() throws Exception {
-            generationService.replaceTextFields(svgDocument, ticket);
+        void renderTicketSvg_withRealCrypto_populatesQrGroup() throws Exception {
+            String svg = generationService.renderTicketSvg(ticket);
 
-            // The QR group should contain rect elements after the call
-            NodeList rects = svgDocument.getElementsByTagName("rect");
-            assertTrue(rects.getLength() > 0, "QR group should contain rect elements after generation");
+            // The injected QR group should contain rect modules after generation
+            assertTrue(svg.contains("<rect"), "QR group should contain rect elements after generation");
+            assertTrue(svg.contains("fill=\"#17171c\""), "QR modules should use the configured fill");
         }
 
         @Test
-        void replaceTextFields_differentTickets_produceDistinctSvgs() throws Exception {
+        void renderTicketPng_withRealCrypto_producesPng() throws Exception {
+            byte[] png = generationService.renderTicketPng(ticket, 720, 1440);
+
+            assertNotNull(png);
+            assertTrue(png.length > 0);
+            assertEquals((byte) 0x89, png[0], "should be a PNG");
+        }
+
+        @Test
+        void renderTicketSvg_differentTickets_produceDistinctSvgs() throws Exception {
             Ticket otherTicket = Ticket.builder()
                     .ID(UUID.randomUUID())
                     .firstName("Bob")
@@ -201,29 +206,22 @@ class TicketQrIntegrationTest {
                     .ticketType(ticket.getTicketType())
                     .build();
 
-            Document doc1 = loadSvgTemplate();
-            Document doc2 = loadSvgTemplate();
-
-            generationService.replaceTextFields(doc1, ticket);
-            generationService.replaceTextFields(doc2, otherTicket);
-
             // SVG content differs because ticket IDs (and thus QR tokens) differ
-            String svg1 = doc1.getDocumentElement().getTextContent();
-            String svg2 = doc2.getDocumentElement().getTextContent();
+            String svg1 = generationService.renderTicketSvg(ticket);
+            String svg2 = generationService.renderTicketSvg(otherTicket);
             assertNotEquals(svg1, svg2);
         }
 
-        private Document loadSvgTemplate() throws Exception {
-            InputStream stream = getClass().getClassLoader()
-                    .getResourceAsStream("templates/ticketTemplate.svg");
-            assertNotNull(stream, "SVG template must exist in test resources");
+        private TemplateEngine svgTemplateEngine() {
+            ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+            resolver.setPrefix("templates/");
+            resolver.setSuffix(".svg");
+            resolver.setTemplateMode(TemplateMode.XML);
+            resolver.setCharacterEncoding("UTF-8");
 
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(stream);
-            stream.close();
-            return doc;
+            TemplateEngine engine = new TemplateEngine();
+            engine.setTemplateResolver(resolver);
+            return engine;
         }
     }
 }

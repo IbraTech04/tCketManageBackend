@@ -44,7 +44,6 @@ src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/private.pem
 src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/public.pem
 src/test/resources/keys/private.pem
 src/test/resources/keys/public.pem
-# Contains SMTP credentials — do not track (also covered by *.properties above)
 src/main/resources/application.properties
 src/test/resources/application.properties
 scripts/e2e_orders_manual_test.py
