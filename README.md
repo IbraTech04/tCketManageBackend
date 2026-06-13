@@ -2,16 +2,16 @@
 
 REST API backend for tCketManage — a lightweight, self-hostable event ticketing system. Handles event management, ticket generation, order/payment processing, QR-based ticket scanning, and email delivery.
 
-Built with **Spring Boot 3.5 + Java 21**, backed by SQLite (dev) or PostgreSQL (production).
+Built with **Spring Boot 3.5 + Java 21**, backed by PostgreSQL and designed for high concurrency and data integrity.
 
 ## Features
 
-- **Events & Zones** — create events with named access zones; ticket types carry per-zone entitlements
-- **Orders & Payments** — pluggable payment provider system with Mock (auto-confirm), Stripe (stub), and Interac e-Transfer (manual reference-code flow); expired orders are swept automatically
-- **Ticket generation** — tickets are signed with ED25519, embedded in a QR code, and delivered via email using an HTML/SVG template
-- **QR scanning** — scan endpoint validates a ticket's cryptographic signature and records scan events per zone
+- **Events & Zones:** Create events with named access zones; ticket types carry per-zone entitlements and entry limits.
+- **Ticket Types:** Define multiple ticket types per event with different prices, zone access, and availability windows (coming soon).
+- **Orders & Payments:** Pluggable payment provider system with support for Interac E-Transfer (See [ETRANSFER.MD](./ETRANSFER.MD)). Stripe integration is on the roadmap.
+- **Ticket generation and MailMerge:** Tickets are signed with ED25519, embedded in a QR code, and delivered via email using an HTML/SVG template
+- **QR scanning:** Scan endpoint validates a ticket's cryptographic signature and records scan events per zone
 - **CSV import** — bulk-import attendees from CSV with configurable column mapping
-- **Swagger UI** — interactive API docs at `/swagger-ui.html`; OpenAPI spec at `/api-docs`
 
 ## Quick Start
 
@@ -64,9 +64,15 @@ Selling tickets is a classic oversell problem: many buyers can race for the last
 ## Still To Do
 
 - Authentication (JWT/OAuth — currently all endpoints are open except those behind `X-Admin-Token`)
-- Stripe payment implementation 
-- ETransfer payment confirmation flow
-- Docker / deployment packaging
-- STOMP/WebSocket support for async updates (specifically email delivery status)
+- Stripe payment implementation
+- Ticket theming w/ AI designer
+- Move to Spring Boot 4 + Java 25?
+- Anything in [Plan.md](./Plan.md)
 - Anything else that's broken or missing! This is a very early-stage project, so expect rough edges. Contributions welcome!
-- Ticket theming + new Ticket Designs :eyes:
+
+
+## Epilogue
+
+tCketManage started as a PoC I built in highschool to make a simple ticketing system for school events. The original version used Python and tkinter and was a desktop app that ran on the organizer's computer, which was a nightmare to maintain and distribute. Worse, it used Google Sheets as the backend "database" (decision made so we could easily revert back to manual ticketing if the app broke during an event), which led to me eventually writing my own ORM layer on top of the Sheets API to manage JOINs and whatnot.
+
+The new version is a complete rewrite from the ground up in Java with Spring Boot, designed to be a wrapped by anything from a simple command-line script to a web app (or a PWA). This was designed to address one of the main pain points of the original app, which was the requirement of a Windows-based laptop to run the organizer's interface. The new version can run on any platform that supports Java, and the API can be consumed by any frontend framework.

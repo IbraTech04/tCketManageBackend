@@ -39,6 +39,9 @@ src/main/resources/keys/public.pem
 ### Local SQLite DB ###
 *.db
 
+*.env
+*.pyc
+
 *.properties
 src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/private.pem
 src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/public.pem
@@ -49,3 +52,4 @@ src/test/resources/application.properties
 scripts/e2e_orders_manual_test.py
 scripts/e2e_orders_test.py
 scripts/__pycache__/stress_test.cpython-310.pyc
+src/test/resources/interac-etransfer-sample.html
