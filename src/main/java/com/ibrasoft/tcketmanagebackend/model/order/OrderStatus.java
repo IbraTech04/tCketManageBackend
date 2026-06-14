@@ -22,5 +22,6 @@ public enum OrderStatus {
     EXPIRED,
     CANCELLED,
     REFUND_PENDING,
-    REFUNDED
+    REFUNDED,
+    QUARANTINED,
 }

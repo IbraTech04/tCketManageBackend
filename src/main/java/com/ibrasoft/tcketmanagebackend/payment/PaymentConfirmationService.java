@@ -67,6 +67,25 @@ public class PaymentConfirmationService {
         return orderRepository.save(order);
     }
 
+    /**
+     * Sets an order aside for an operator after a received payment couldn't be cleanly matched to it
+     * (e.g. an e-Transfer arrived referencing this order's code but for the wrong amount). Locks the
+     * row like {@link #confirmPayment} so a quarantine can't race a confirmation, and only transitions
+     * from {@code AWAITING_PAYMENT}: an order that already settled, expired, cancelled, or was itself
+     * already quarantined is left untouched, making a redelivered/duplicate email a no-op.
+     */
+    @Transactional
+    public Order quarantineOrder(UUID orderId) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            return order;
+        }
+        order.setStatus(OrderStatus.QUARANTINED);
+        return orderRepository.save(order);
+    }
+
     /** Re-acquires the seats an expired/cancelled order had held. {@code false} if any is sold out. */
     private boolean reReserveSeats(Order order) {
         return inventoryService.tryReserveAll(InventoryService.seatsByTicketType(order.getItems()));
