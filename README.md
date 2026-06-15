@@ -15,6 +15,8 @@ Built with **Spring Boot 3.5 + Java 21**, backed by PostgreSQL and designed for 
 
 ## Quick Start
 
+First, copy the example `applications.properties.example` to `application.properties` and adjust any settings as needed (e.g. payment provider, email config, database URL). For local development, the defaults should work out of the box.
+
 ```bash
 ./mvnw spring-boot:run
 ```
@@ -51,7 +53,7 @@ All routes are under `/api/v1/`.
 
 ## Concurrency & Locking Strategy
 
-Selling tickets is a classic oversell problem: many buyers can race for the last seat of a ticket type, and the same order can receive a confirmation, a buyer-cancel, and an expiry sweep at nearly the same moment. The majority of the time spent architecting tCketManage was designing a locking strategy that enables high concurrency without risking oversells or invalid states, and without holding large locks for large periods of time. If you'd like to learn more about the approach I took, check out [LOCKING.MD](LOCKING.MD).
+Selling tickets is a classic oversell problem: many buyers can race for the last seat of a ticket type, and the same order can receive a confirmation, a buyer-cancel, and an expiry sweep at nearly the same moment. The majority of the time spent architecting tCketManage was designing a locking strategy that enables high concurrency without risking oversells or invalid states, and without holding large locks for large periods of time. If you'd like to learn more about the approach I took, check out [LOCKING.MD](./DOCS/LOCKING.MD).
 
 ## Tech Stack
 
@@ -67,7 +69,8 @@ Selling tickets is a classic oversell problem: many buyers can race for the last
 - Stripe payment implementation
 - Ticket theming w/ AI designer
 - Move to Spring Boot 4 + Java 25?
-- Anything in [Plan.md](./Plan.md)
+- Anything in [Plan.md](./DOCS/Plan.md)
+- Upgrade to Spring Boot 4 and Java 25?  
 - Anything else that's broken or missing! This is a very early-stage project, so expect rough edges. Contributions welcome!
 
 
