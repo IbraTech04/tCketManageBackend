@@ -11,7 +11,7 @@ point, see `application.properties.example`.
 By default the app runs on **SQLite** (using the `tcketmanage.db` file). For any real deployment use **PostgreSQL** (Or really, any production-grade RDBMS supported by Spring Data JPA). SQLite serializes everything, so oversell protection
 and concurrency don't apply. This project is designed for PostgresSQL and tested primarily on it, so while SQLite works for local dev and testing, it's not recommended for production.
 
-**Switch to PostgreSQL** by running with the prod profile (`SPRING_PROFILES_ACTIVE=prod`), or set:
+To switch to PostgreSQL, configure the datasource URL and credentials:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/tcketmanage
