@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Turns a received Interac e-Transfer email into a confirmed order. This is the policy layer between
@@ -30,6 +31,7 @@ public class EtransferConfirmationService {
     private static final Logger log = LoggerFactory.getLogger(EtransferConfirmationService.class);
 
     private final InteracEmailParser parser;
+    private final AuthenticationResultsParser authResultsParser;
     private final OrderRepository orderRepository;
     private final PaymentConfirmationService paymentConfirmationService;
     private final PaymentProperties paymentProperties;
@@ -37,20 +39,31 @@ public class EtransferConfirmationService {
     /**
      * Validates and (if everything checks out) confirms the order described by an email.
      *
-     * @param fromAddress the bare {@code From} address of the message (no display name)
-     * @param html        the email's HTML body
+     * @param fromAddress           the bare {@code From} address of the message (no display name)
+     * @param authenticationResults every {@code Authentication-Results} header value in message order,
+     *                              or {@code null}; consulted only when DMARC enforcement is enabled
+     * @param html                  the email's HTML body
      * @return the outcome; the caller quarantines the message when {@link EtransferOutcome#isQuarantined()}
      */
-    public EtransferOutcome process(String fromAddress, String html) {
+    public EtransferOutcome process(String fromAddress, String[] authenticationResults, String html) {
         PaymentProperties.Imap config = paymentProperties.getInterac().getImap();
 
-        // 1. Trust the sender. The From header is spoofable, but matching the configured Interac
-        // address is the standard guard here; stronger SPF/DKIM enforcement is out of scope.
+        // 1. Trust the sender. The From header is spoofable on its own; matching the configured
+        // Interac address is the baseline guard, optionally hardened by the DMARC check below.
         if (!isTrustedSender(fromAddress, config)) {
             return quarantine("untrusted sender: " + fromAddress);
         }
 
-        // 2. Parse. A missing amount means this isn't a recognizable notification.
+        // 2. Enforce DMARC (opt-in). The receiving mail server already validated SPF/DKIM and recorded
+        // the verdict; we require an aligned dmarc=pass so a spoofed From can't ride the step-1 match.
+        if (config.getDmarc().isEnabled()) {
+            EtransferOutcome dmarcFailure = checkDmarc(fromAddress, authenticationResults, config.getDmarc());
+            if (dmarcFailure != null) {
+                return dmarcFailure;
+            }
+        }
+
+        // 3. Parse. A missing amount means this isn't a recognizable notification.
         ParsedEtransfer parsed;
         try {
             parsed = parser.parse(html);
@@ -58,41 +71,89 @@ public class EtransferConfirmationService {
             return quarantine("unparseable email: " + e.getMessage());
         }
 
-        // 3. The memo must contain one of our reference codes.
+        // 4. The memo must contain one of our reference codes.
         if (parsed.referenceCode() == null) {
             return quarantine("no reference code in memo: \"" + parsed.message() + "\"");
         }
 
-        // 4. The code must map to a known order.
+        // 5. The code must map to a known order.
         Optional<Order> match = orderRepository.findByReferenceCode(parsed.referenceCode());
         if (match.isEmpty()) {
             return quarantine("no order for reference code " + parsed.referenceCode());
         }
         Order order = match.get();
 
-        // 5. Amount (and currency) must match exactly, when required. Defence-in-depth on top of the
+        // 6. Amount (and currency) must match exactly, when required. Defence-in-depth on top of the
         // unguessable code: a transfer for the wrong amount never silently fulfills an order.
         if (config.isRequireExactAmount() && !amountMatches(parsed, order)) {
             return quarantine(String.format(
                     "amount mismatch for order %s (code %s): received %s %s, expected %s %s",
                     order.getId(), parsed.referenceCode(),
                     parsed.amount().toPlainString(), parsed.currency(),
-                    order.getAmountTotal().toPlainString(), order.getCurrency()));
+                    order.getAmountTotal().toPlainString(), order.getCurrency()), order.getId());
         }
 
-        // 6. Settle through the single idempotent confirmation seam. Interac's own reference number
+        // 7. Settle through the single idempotent confirmation seam. Interac's own reference number
         // becomes the provider ref (audit trail). A redelivered email is a harmless no-op here.
         try {
             paymentConfirmationService.confirmPayment(order.getId(), parsed.interacReferenceNumber());
         } catch (RuntimeException e) {
             // e.g. the order is in a state that can't transition to PAID: surface for an operator.
-            return quarantine("confirmation failed for order " + order.getId() + ": " + e.getMessage());
+            return quarantine("confirmation failed for order " + order.getId() + ": " + e.getMessage(), order.getId());
         }
 
         log.info("e-Transfer confirmed order {} (code {}, {} {}, interac ref {})",
                 order.getId(), parsed.referenceCode(), parsed.amount().toPlainString(),
                 parsed.currency(), parsed.interacReferenceNumber());
         return EtransferOutcome.confirmed("order " + order.getId() + " confirmed via e-Transfer");
+    }
+
+    /**
+     * Returns a quarantine outcome when DMARC enforcement should reject the message, or {@code null}
+     * when it passes. Fails closed: a misconfiguration, a missing/forged header, or any verdict other
+     * than an aligned {@code pass} is treated as untrusted.
+     */
+    private EtransferOutcome checkDmarc(String fromAddress, String[] authenticationResults,
+                                        PaymentProperties.Dmarc dmarc) {
+        String authservId = dmarc.getAuthservId();
+        if (authservId == null || authservId.isBlank()) {
+            return quarantine("DMARC enforcement enabled but no authserv-id configured");
+        }
+
+        Optional<AuthenticationResultsParser.DmarcResult> result =
+                authResultsParser.find(authenticationResults, authservId);
+        if (result.isEmpty()) {
+            return quarantine("no DMARC result from authserv-id '" + authservId
+                    + "' in Authentication-Results for " + fromAddress);
+        }
+        AuthenticationResultsParser.DmarcResult dmarcResult = result.get();
+        if (!dmarcResult.isPass()) {
+            return quarantine("DMARC not pass (dmarc=" + dmarcResult.verdict() + ") for " + fromAddress);
+        }
+
+        String expectedDomain = expectedDomain(dmarc, fromAddress);
+        if (!domainAligned(dmarcResult.headerFrom(), expectedDomain)) {
+            return quarantine("DMARC header.from '" + dmarcResult.headerFrom()
+                    + "' not aligned with expected domain '" + expectedDomain + "'");
+        }
+        return null;
+    }
+
+    /** The configured aligned domain, or - when unset - the domain of the trusted From address. */
+    private static String expectedDomain(PaymentProperties.Dmarc dmarc, String fromAddress) {
+        if (dmarc.getAlignedDomain() != null && !dmarc.getAlignedDomain().isBlank()) {
+            return dmarc.getAlignedDomain().trim().toLowerCase();
+        }
+        int at = fromAddress == null ? -1 : fromAddress.lastIndexOf('@');
+        return at >= 0 ? fromAddress.substring(at + 1).trim().toLowerCase() : null;
+    }
+
+    /** Aligned when the authenticated domain equals the expected one or is a subdomain of it. */
+    private static boolean domainAligned(String headerFrom, String expectedDomain) {
+        if (headerFrom == null || expectedDomain == null || expectedDomain.isBlank()) {
+            return false;
+        }
+        return headerFrom.equals(expectedDomain) || headerFrom.endsWith("." + expectedDomain);
     }
 
     private boolean isTrustedSender(String fromAddress, PaymentProperties.Imap config) {
@@ -110,7 +171,20 @@ public class EtransferConfirmationService {
     }
 
     private EtransferOutcome quarantine(String reason) {
+        return quarantine(reason, null);
+    }
+
+    /**
+     * Quarantines the email and, when it was matched to an order, sets that order aside for review.
+     * The order transition goes through {@link PaymentConfirmationService#quarantineOrder} so it takes
+     * the same row lock as confirmation and can't race it; passing {@code null} (no order identified)
+     * quarantines the email only.
+     */
+    private EtransferOutcome quarantine(String reason, UUID orderId) {
         log.warn("Quarantining e-Transfer email for review: {}", reason);
+        if (orderId != null) {
+            paymentConfirmationService.quarantineOrder(orderId);
+        }
         return EtransferOutcome.quarantined(reason);
     }
 }

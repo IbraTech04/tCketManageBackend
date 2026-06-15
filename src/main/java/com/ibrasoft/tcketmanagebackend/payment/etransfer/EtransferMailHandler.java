@@ -45,6 +45,7 @@ class EtransferMailHandler implements MessageHandler {
         }
         try {
             String from = extractFrom(mail);
+            String[] authResults = mail.getHeader("Authentication-Results");
             String body = extractBody(mail);
             if (body == null) {
                 log.warn("Received e-Transfer email with no text/html body from {}; quarantining.", from);
@@ -52,7 +53,7 @@ class EtransferMailHandler implements MessageHandler {
                 return;
             }
 
-            EtransferOutcome outcome = confirmationService.process(from, body);
+            EtransferOutcome outcome = confirmationService.process(from, authResults, body);
             if (outcome.isQuarantined()) {
                 moveToReview(mail);
             }
@@ -128,6 +129,7 @@ class EtransferMailHandler implements MessageHandler {
         Folder review = store.getFolder(reviewFolder);
         if (!review.exists()) {
             review.create(Folder.HOLDS_MESSAGES);
+            review.setSubscribed(true);
         }
         inbox.copyMessages(new jakarta.mail.Message[]{mail}, review);
     }

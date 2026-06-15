@@ -121,4 +121,35 @@ class PaymentConfirmationServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> confirmationService.confirmPayment(id, null));
     }
+
+    @Test
+    void quarantine_awaitingPayment_marksQuarantined() {
+        Order o = order(OrderStatus.AWAITING_PAYMENT);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.quarantineOrder(o.getId());
+
+        assertEquals(OrderStatus.QUARANTINED, result.getStatus());
+        verify(fulfillmentService, never()).fulfill(any());
+    }
+
+    @Test
+    void quarantine_alreadyPaid_isNoOp() {
+        Order o = order(OrderStatus.PAID);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        Order result = confirmationService.quarantineOrder(o.getId());
+
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void quarantine_notFound_throws() {
+        UUID id = UUID.randomUUID();
+        when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> confirmationService.quarantineOrder(id));
+    }
 }

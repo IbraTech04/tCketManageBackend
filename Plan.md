@@ -19,3 +19,9 @@ Stripe implementation is on the roadmap, however Interac E-Transfer is the main 
 Currently we use Thymeleaf for ticket fields within a simple SVG template. The ultimate goal is to expand the template into a theming system where users can define their own colors and branding elements managed through thymeleaf stylesheets in the SVG template. This will allow event organizers to create tickets that match their event's branding without needing to modify the core codebase. Additionally, we can provide a few pre-built ticket designs that users can choose from or use as a starting point for their own custom designs.
 
 The ultimate ultimate goal here is to plug into HuggingFace models and turn a text description of a desired ticket design into an actual SVG template, but that's a bit further down the road and will likely require some experimentation to get right.
+
+## Mobile Wallet Integration (Apple Wallet, Google Pay)
+
+A far fetch for now, however something on the roadmap. The idea is to generate the appropriate pass files for Apple Wallet and Google Pay, allowing attendees to add their tickets to their mobile wallets for easy access at the event, without a specific app required.re
+
+Apple Wallet is likely a farfetch as it requires a $130/year developer account and a Mac to generate the necessary certificates. Google Wallet should (in theory) be much more straight forward.

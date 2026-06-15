@@ -1,0 +1,3 @@
+# Generated tickets — keep the folder, ignore its contents.
+*
+!.gitignore

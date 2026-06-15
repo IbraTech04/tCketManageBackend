@@ -81,5 +81,40 @@ public class PaymentProperties {
          * message is quarantined. Defence-in-depth on top of the unguessable memo code.
          */
         private boolean requireExactAmount = true;
+
+        /** Optional DMARC enforcement based on the mail server's {@code Authentication-Results}. */
+        private Dmarc dmarc = new Dmarc();
+    }
+
+    /**
+     * Opt-in DMARC enforcement, bound from {@code payments.interac.imap.dmarc.*}. DMARC is evaluated
+     * by the receiving mail server, which records the verdict in an {@code Authentication-Results}
+     * header; we read that header rather than re-validating SPF/DKIM ourselves.
+     *
+     * <p>Disabled by default so a deployment whose mailbox provider doesn't stamp the header (or
+     * hasn't configured this) keeps the From-match-only behaviour instead of quarantining every
+     * payment. When enabled, a message that isn't an aligned {@code dmarc=pass} is quarantined
+     * (fail-closed), consistent with the rest of the pipeline.
+     */
+    @Data
+    public static class Dmarc {
+
+        /** Master switch for DMARC enforcement. */
+        private boolean enabled = false;
+
+        /**
+         * The {@code authserv-id} your own receiving mail server writes as the first token of the
+         * {@code Authentication-Results} header it adds (e.g. {@code mail.lensbridge.tech}). Only the
+         * header bearing this id is trusted; any other (a spoofer can forge {@code Authentication-Results}
+         * lines in the message body) is ignored. Required when {@link #enabled}.
+         */
+        private String authservId;
+
+        /**
+         * Domain the authenticated {@code header.from} must align with. Optional: when blank, defaults
+         * to the domain of the trusted {@code From} address of the message being checked, so the DMARC
+         * verdict is confirmed to apply to the sender we already trust.
+         */
+        private String alignedDomain;
     }
 }

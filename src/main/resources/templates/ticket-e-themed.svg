@@ -1,0 +1,146 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:th="http://www.thymeleaf.org"
+  viewBox="0 0 360 720" font-family="var(--font-family)">
+  <!--
+    Themeable ticket. Unlike ticket-c-midnight / ticket-d-daylight (palette baked
+    into the markup), every visual choice here is read from CSS custom properties.
+    The whole palette is one injectable stylesheet, bound into the style element
+    below via Thymeleaf utext. The root block committed here is the default
+    (midnight) theme and a self-documenting contract of every variable a generated
+    stylesheet must define. Data fields bind the same way as in ticket-c-midnight.
+  -->
+  <style th:utext="${stylesheet}">
+    :root {
+      --font-family: 'Product Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --ticket-bg: #17171c;   /* card background */
+      --accent-1: #f97316;    /* spine gradient — top   */
+      --accent-2: #ea580c;    /* spine gradient — middle */
+      --accent-3: #ef4444;    /* spine gradient — bottom */
+      --orb-color: #f97316;   /* corner glow */
+      --shadow-color: #18181b;/* drop shadow tint */
+      --logo-stroke: #ffffff; /* logo glyph stroke */
+      --logo-fill: #ffffff;   /* logo "+" mark fill */
+      --logo-ink: #ffffff;    /* wordmark text */
+      --admit-stroke: #ffffff;/* ADMIT ONE pill border */
+      --admit-ink: #d7d7dc;   /* ADMIT ONE text */
+      --ticket-type: #ff8a45; /* ticket-type eyebrow */
+      --ink: #ffffff;         /* event name */
+      --value: #f4f4f5;       /* field values (date, time, location, holder) */
+      --label: #7e7e87;       /* field labels (DATE, DOORS, ...) */
+      --ink-muted: #9a9aa3;   /* secondary detail line */
+      --divider: #ffffff;     /* hairline rules (kept faint via stroke-opacity) */
+      --perforation: #ffffff; /* dashed tear line */
+      --qr-panel: #ffffff;    /* QR backing panel */
+      --qr-fg: #18181b;       /* QR modules */
+      --qr-bg: #ffffff;       /* QR quiet zone */
+      --footer: #5b5b63;      /* footer text */
+    }
+  </style>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--accent-1)"></stop>
+      <stop offset=".55" stop-color="var(--accent-2)"></stop>
+      <stop offset="1" stop-color="var(--accent-3)"></stop>
+    </linearGradient>
+    <radialGradient id="orb" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="var(--orb-color)" stop-opacity=".55"></stop>
+      <stop offset="1" stop-color="var(--orb-color)" stop-opacity="0"></stop>
+    </radialGradient>
+    <!-- Drop shadow built from primitives Batik supports (it has no feDropShadow). -->
+    <filter id="sh" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9"></feGaussianBlur>
+      <feOffset dx="0" dy="6" result="shadow"></feOffset>
+      <feFlood flood-color="var(--shadow-color)" flood-opacity="0.18"></feFlood>
+      <feComposite in2="shadow" operator="in"></feComposite>
+      <feMerge>
+        <feMergeNode></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+    <mask id="cm">
+      <rect x="16" y="16" width="328" height="688" rx="22" fill="#fff"></rect>
+      <circle cx="16" cy="432" r="13" fill="#000"></circle>
+      <circle cx="344" cy="432" r="13" fill="#000"></circle>
+    </mask>
+    <clipPath id="cc">
+      <rect x="16" y="16" width="328" height="688" rx="22"></rect>
+    </clipPath>
+    <!-- Slot: model-authored gradients / patterns / filters, referenced by id from
+         the ornament layer below. Lives in <defs>, so it never renders directly. -->
+    <g id="customDefs" th:utext="${customDefs}"></g>
+  </defs>
+  <g mask="url(#cm)" filter="url(#sh)">
+    <rect x="16" y="16" width="328" height="688" rx="22" fill="var(--ticket-bg)"></rect>
+    <g clip-path="url(#cc)">
+      <rect x="16" y="16" width="7" height="688" fill="url(#g)"></rect>
+      <circle cx="324" cy="46" r="110" fill="url(#orb)"></circle>
+      <!-- Slot: model-authored decoration. Clipped to the card and drawn behind all
+           foreground text and the QR (which come later in document order), so it can
+           paint freely without ever covering data or the code. -->
+      <g id="ornament" th:utext="${ornament}"></g>
+    </g>
+  </g>
+  <g id="logo">
+    <svg x="46" y="35" width="29.7" height="27" viewBox="24 71 1031 938" fill="none"
+      stroke="var(--logo-stroke)" stroke-width="52.1" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path
+        d="M227.18,723.26c-26.66-17.25-62.21-17.62-89.75,1.81l-79.02-112c-6.87-9.74-4.52-23.33,5.21-30.2l184.42-130.12"></path>
+      <path
+        d="M307.95,410.5L740.97,104.99c9.74-6.87,23.33-4.52,30.2,5.21l79.02,112c-36.16,25.51-44.79,75.5-19.28,111.66,25.51,36.16,75.5,44.79,111.66,19.28l79.02,112c6.87,9.74,4.52,23.33-5.21,30.2"></path>
+      <path
+        d="M398.69,501.24h604.99c11.92,0,21.67,9.75,21.67,21.67v137.07c-44.25,0-80.12,35.87-80.12,80.12s35.87,80.12,80.12,80.12c0,0,0,137.07,0,137.07,0,11.92-9.75,21.67-21.67,21.67h-127.27"></path>
+      <path
+        d="M774.25,978.95H174.72c-11.92,0-21.67-9.75-21.67-21.67,0,0,0-137.07,0-137.07,44.25,0,80.12-35.87,80.12-80.12s-35.87-80.12-80.12-80.12v-137.07c0-11.92,9.75-21.67,21.67-21.67h121.81"></path>
+      <path
+        d="M951.24,932.14c-1.38,0-2.5-1.12-2.5-2.5v-15.59h-15.59c-1.38,0-2.5-1.12-2.5-2.5v-12.34c0-1.38,1.12-2.5,2.5-2.5h15.59v-15.59c0-1.38,1.12-2.5,2.5-2.5h12.34c1.38,0,2.5,1.12,2.5,2.5v15.59h15.69c1.38,0,2.5,1.12,2.5,2.5v12.34c0,1.38-1.12,2.5-2.5,2.5h-15.69v15.59c0,1.38-1.12,2.5-2.5,2.5h-12.34Z"
+        fill="var(--logo-fill)" stroke="none"></path>
+    </svg>
+    <text x="86" y="57" font-size="15.5" font-weight="700" letter-spacing="-.2"
+      fill="var(--logo-ink)">tCketManage</text>
+  </g>
+  <g transform="translate(318 0)">
+    <rect x="-92" y="42" width="92" height="22" rx="11" fill="none"
+      stroke="var(--admit-stroke)" stroke-opacity=".28"></rect>
+    <text x="-46" y="57" text-anchor="middle" font-size="10" letter-spacing="1.8"
+      fill="var(--admit-ink)">ADMIT ONE</text>
+  </g>
+  <g id="eventDetails">
+    <text id="ticketType" x="46" y="150" font-size="11" font-weight="600" letter-spacing="1.6"
+      fill="var(--ticket-type)" th:text="${ticketType}">FOUNDERS PASS</text>
+    <text id="eventName" x="46" y="186" font-size="28" font-weight="700" letter-spacing="-.4"
+      fill="var(--ink)" th:text="${eventName}">Lumen Summit 2026</text>
+  </g>
+  <g>
+    <text x="46" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4"
+      fill="var(--label)">DATE</text>
+    <text id="date" x="46" y="270" font-size="15" font-weight="600" fill="var(--value)"
+      th:text="${eventDate}">Fri · Mar 13, 2026</text>
+    <text x="196" y="250" font-size="10.5" font-weight="600" letter-spacing="1.4"
+      fill="var(--label)">DOORS</text>
+    <text id="time" x="196" y="270" font-size="15" font-weight="600" fill="var(--value)"
+      th:text="${eventTime}">7:30 PM</text>
+    <line x1="46" y1="300" x2="314" y2="300" stroke="var(--divider)" stroke-opacity=".09"></line>
+    <text x="46" y="330" font-size="10.5" font-weight="600" letter-spacing="1.4"
+      fill="var(--label)">LOCATION</text>
+    <text id="location" x="46" y="350" font-size="15" font-weight="600" fill="var(--value)"
+      th:text="${location}">The Glasshouse</text>
+    <text id="locationDetail" x="46" y="367" font-size="11.5" fill="var(--ink-muted)"
+      th:text="${locationDetail}">123 Event Street, City</text>
+    <line x1="46" y1="397" x2="314" y2="397" stroke="var(--divider)" stroke-opacity=".09"></line>
+    <g id="attendeeDetails">
+      <text x="46" y="421" font-size="10.5" font-weight="600" letter-spacing="1.4"
+        fill="var(--label)">TICKET HOLDER</text>
+      <text id="fullName" x="314" y="421" text-anchor="end" font-size="14" font-weight="600"
+        fill="var(--value)" th:text="${fullName}">Jordan A. Rivera</text>
+    </g>
+  </g>
+  <line x1="31" y1="432" x2="329" y2="432" stroke="var(--perforation)" stroke-opacity=".15"
+    stroke-width="1.5" stroke-dasharray="1 6" stroke-linecap="round"></line>
+  <g id="qrSection">
+    <rect x="66" y="450" width="228" height="222" rx="20" fill="var(--qr-panel)"></rect>
+    <g id="qrCode" th:utext="${qrCode}"></g>
+    <text id="footer" x="180" y="692" text-anchor="middle" font-size="9.5" letter-spacing=".3"
+      fill="var(--footer)">Powered by tCketManage</text>
+  </g>
+</svg>
