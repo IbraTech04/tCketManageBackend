@@ -4,6 +4,7 @@ import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobStatus;
 import com.ibrasoft.tcketmanagebackend.service.email.EmailJobRegistry;
 import lombok.AllArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,7 @@ public class EmailJobController {
 
     private final EmailJobRegistry registry;
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @GetMapping("/{jobId}")
     public EmailJobStatus getJob(@PathVariable UUID jobId) {
         return registry.get(jobId)

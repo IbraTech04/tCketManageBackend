@@ -14,7 +14,6 @@ import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketTypeResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ZoneResponse;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
-import com.ibrasoft.tcketmanagebackend.security.AdminGuard;
 import com.ibrasoft.tcketmanagebackend.service.EventService;
 import com.ibrasoft.tcketmanagebackend.service.ImportService;
 import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
@@ -26,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -47,7 +47,6 @@ public class EventController {
     private final TicketTypeService ticketTypeService;
     private final ImportService importService;
     private final TicketDeliveryService ticketDeliveryService;
-    private final AdminGuard adminGuard;
 
     @GetMapping
     public Page<EventResponse> getAllEvents(Pageable pageable) {
@@ -59,6 +58,7 @@ public class EventController {
         return EventResponse.from(eventService.getEventById(id));
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {
         Event created = eventService.createEvent(
@@ -70,6 +70,7 @@ public class EventController {
      * Atomically creates an entire event — metadata, zones, and ticket types with their per-zone
      * entitlements — from a single wizard payload. Either the whole graph is created or nothing is.
      */
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping("/full")
     public ResponseEntity<FullEventResponse> createFullEvent(@Valid @RequestBody CreateFullEventRequest request) {
         EventService.EventCreationResult result = eventService.createFullEvent(request);
@@ -77,11 +78,13 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PutMapping("/{id}")
     public EventResponse updateEvent(@PathVariable UUID id, @Valid @RequestBody UpdateEventRequest request) {
         return EventResponse.from(eventService.updateEvent(id, request));
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable UUID id) {
         return eventService.deleteEvent(id)
@@ -99,6 +102,7 @@ public class EventController {
                 .collect(Collectors.toList());
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping("/{id}/zones")
     public ResponseEntity<ZoneResponse> addZoneToEvent(@PathVariable UUID id, @RequestBody AddZoneRequest request) {
         ZoneResponse created = ZoneResponse.from(eventService.addZoneToEvent(id, request.getZoneName()));
@@ -114,6 +118,7 @@ public class EventController {
                 .collect(Collectors.toList());
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping("/{id}/ticket-types")
     public ResponseEntity<TicketTypeResponse> createTicketType(
             @PathVariable UUID id, @Valid @RequestBody CreateTicketTypeRequest request) {
@@ -123,18 +128,18 @@ public class EventController {
 
     // --- Attendee roster + CSV import ---
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @GetMapping("/{id}/tickets")
     public Page<TicketResponse> getTicketsByEvent(@PathVariable UUID id, Pageable pageable) {
         return ticketService.getTicketsByEvent(id, pageable).map(TicketResponse::from);
     }
 
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping(value = "/{id}/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImportResult> importAttendees(
             @PathVariable UUID id,
             @RequestPart("file") MultipartFile file,
-            @RequestPart("config") @Valid ImportConfig config,
-            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
-        adminGuard.require(adminToken);
+            @RequestPart("config") @Valid ImportConfig config) {
         ImportResult result = importService.importAttendees(id, file, config);
         HttpStatus status = result.getErrors().isEmpty() ? HttpStatus.OK : HttpStatus.UNPROCESSABLE_ENTITY;
         return ResponseEntity.status(status).body(result);
@@ -148,11 +153,9 @@ public class EventController {
      * Returns {@code 202 Accepted} immediately; live per-ticket progress and the final sent/failed
      * counts are streamed over STOMP at {@code /topic/email-jobs/{jobId}}.
      */
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping("/{id}/tickets/resend")
-    public ResponseEntity<EmailJobAccepted> resendAllTickets(
-            @PathVariable UUID id,
-            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
-        adminGuard.require(adminToken);
+    public ResponseEntity<EmailJobAccepted> resendAllTickets(@PathVariable UUID id) {
         return ResponseEntity.accepted().body(ticketDeliveryService.resendAll(id));
     }
 
@@ -161,11 +164,9 @@ public class EventController {
      * ({@code lastTicketSent == null}) — a safe "fill the gaps" complement to a full resend. Async:
      * see {@link #resendAllTickets} for how progress is reported.
      */
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @PostMapping("/{id}/tickets/send-missing")
-    public ResponseEntity<EmailJobAccepted> sendMissingTickets(
-            @PathVariable UUID id,
-            @RequestHeader(value = "X-Admin-Token", required = false) String adminToken) {
-        adminGuard.require(adminToken);
+    public ResponseEntity<EmailJobAccepted> sendMissingTickets(@PathVariable UUID id) {
         return ResponseEntity.accepted().body(ticketDeliveryService.sendMissing(id));
     }
 }

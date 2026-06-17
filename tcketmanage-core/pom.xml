@@ -63,6 +63,15 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- Brings the @PreAuthorize annotation + SecurityContext only (NOT spring-security-web).
+             Core declares authorization *intent*; enforcement is the host's: a host with method
+             security enabled (e.g. LensBridge) honours these annotations, while the standalone
+             tcketmanage-app enables nothing, so they stay inert and the app is fully open. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

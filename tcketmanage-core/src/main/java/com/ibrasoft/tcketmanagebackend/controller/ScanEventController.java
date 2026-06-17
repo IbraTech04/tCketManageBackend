@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -18,9 +19,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Scanning, validation and scan-history reporting. Class-level {@code @PreAuthorize}: every endpoint
+ * requires at least the configured scanner role (with the host's role hierarchy, the event-manager
+ * and admin roles inherit it).
+ */
 @RestController
 @RequestMapping("/api/v1/scans")
 @AllArgsConstructor
+@PreAuthorize("hasRole(@tcketmanageRoles.scanner)")
 public class ScanEventController {
 
     private final ScanEventService scanEventService;

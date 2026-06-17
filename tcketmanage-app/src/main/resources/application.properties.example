@@ -33,14 +33,21 @@ spring.jpa.hibernate.ddl-auto=update
 # "*" is dev-only — lock this down per deployment.
 web.cors.allowed-origins=*
 
+# --- Authorization roles ---
+# Role names core's @PreAuthorize checks resolve to (no ROLE_ prefix; hasRole adds it). Defaults
+# are core's native roles. An embedding host can remap these onto its OWN roles without editing core
+# — e.g. a host with USER/ADMIN/ROOT might set event-manager=ADMIN and admin=ROOT. These only take
+# effect where method security is enabled (the standalone app enables none, so all endpoints are open).
+#tcketmanage.security.roles.scanner=SCANNER
+#tcketmanage.security.roles.event-manager=EVENT_MANAGER
+#tcketmanage.security.roles.admin=ADMIN
+
 # =============================================================================
 # Payments
 # =============================================================================
 # Active provider when an order doesn't specify one: mock | interac | stripe.
 # Dev default is the mock provider so you can place orders without real money.
 payments.default-provider=mock
-# Shared secret for operator endpoints (X-Admin-Token header). CHANGE PER DEPLOYMENT.
-payments.admin-token=CHANGE_ME_admin_token
 # Interval (ms) for the expired-order sweep.
 payments.sweep-interval-ms=60000
 

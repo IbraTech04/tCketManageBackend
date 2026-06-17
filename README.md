@@ -30,7 +30,6 @@ Key properties in `src/main/resources/application.properties`:
 | Property | Default | Description |
 |---|---|---|
 | `payments.default-provider` | `mock` | Active payment provider (`mock`, `stripe`, `interac`) |
-| `payments.admin-token` | `changeme-dev-token` | Shared secret for admin-only endpoints |
 | `payments.mock.auto-confirm` | `true` | Settle mock orders immediately |
 | `payments.interac.payee-email` | _(empty)_ | Required to enable Interac e-Transfer |
 | `app.email.enabled` | `true` | `false` logs emails only; `true` sends via SMTP |
@@ -65,7 +64,7 @@ Selling tickets is a classic oversell problem: many buyers can race for the last
 
 ## Still To Do
 
-- Authentication (JWT/OAuth — currently all endpoints are open except those behind `X-Admin-Token`)
+- Authentication/authorization: operator endpoints carry `@PreAuthorize` checks against three configurable roles (`tcketmanage.security.roles.{scanner,event-manager,admin}`, default `SCANNER`/`EVENT_MANAGER`/`ADMIN` — remap onto a host's own roles via config). These are **inert unless a host enables Spring method security**. The standalone `tcketmanage-app` enables nothing, so all endpoints are open (for dev/testing); an embedding host (e.g. LensBridge) enables enforcement and provides the identities/role hierarchy.
 - Stripe payment implementation
 - Ticket theming w/ AI designer
 - Move to Spring Boot 4 + Java 25?

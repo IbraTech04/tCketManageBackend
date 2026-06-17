@@ -17,12 +17,6 @@ public class PaymentProperties {
     /** Provider id used when an order request doesn't specify one. */
     private String defaultProvider = "mock";
 
-    /**
-     * Shared secret required (as the {@code X-Admin-Token} header) to call operator endpoints such
-     * as manual payment confirmation. Interim measure until real authentication is added.
-     */
-    private String adminToken;
-
     private Mock mock = new Mock();
     private Interac interac = new Interac();
 
