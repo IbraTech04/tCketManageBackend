@@ -22,8 +22,12 @@ import java.util.Map;
  * Translates exceptions thrown by controllers/services into a consistent {@link ErrorResponse}
  * with an appropriate HTTP status, replacing the previous pattern of swallowing exceptions into
  * generic 400s.
+ *
+ * <p>Scoped to core's own controller package so that when embedded in a host application this advice
+ * only governs tCketManage endpoints and does not override the host's error contract (and the host's
+ * own {@code @RestControllerAdvice} does not govern core's endpoints).
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.ibrasoft.tcketmanagebackend.controller")
 @Slf4j
 public class GlobalExceptionHandler {
 

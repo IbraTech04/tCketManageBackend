@@ -1,12 +1,16 @@
 package com.ibrasoft.tcketmanage.autoconfigure;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.core.env.Environment;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -17,9 +21,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * <ul>
  *   <li>{@link ComponentScan} over the core base package picks up its {@code @Component} beans,
  *       including the {@code @Configuration} classes and {@code @ConfigurationProperties} POJOs;</li>
- *   <li>{@link EntityScan} / {@link EnableJpaRepositories} register the JPA entities and
- *       repositories that live under core's packages (the host's own entity/repository scanning
- *       would otherwise miss them);</li>
+ *   <li>{@link CorePackageRegistrar} adds core's base package to Spring Boot's
+ *       {@link AutoConfigurationPackages} so that Boot's own (un-suppressed) JPA auto-configuration
+ *       scans core's entities and repositories <em>in addition to</em> the host's. We deliberately do
+ *       <strong>not</strong> use {@code @EntityScan}/{@code @EnableJpaRepositories} here: either of
+ *       those makes Boot back off from scanning the host's auto-configuration package, which would
+ *       leave a host application (e.g. LensBridge) unable to find its own entities/repositories;</li>
  *   <li>{@link EnableScheduling} enables the order-expiry sweep and other scheduled work.</li>
  * </ul>
  *
@@ -33,16 +40,34 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "tcketmanage", name = "enabled", matchIfMissing = false)
-@ComponentScan("com.ibrasoft.tcketmanagebackend")
-@EntityScan("com.ibrasoft.tcketmanagebackend.model")
-@EnableJpaRepositories("com.ibrasoft.tcketmanagebackend.repository")
+// Fully-qualified bean names so core's scanned @Component/@Configuration beans (e.g. WebConfig,
+// WebSocketConfig, GlobalExceptionHandler) never collide with identically-named beans in a host
+// application's own component scan. Only affects scanned beans; explicit @Bean(name=...) is unchanged.
+@ComponentScan(basePackages = "com.ibrasoft.tcketmanagebackend",
+        nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class)
+@Import(TcketManageAutoConfiguration.CorePackageRegistrar.class)
 @EnableScheduling
 public class TcketManageAutoConfiguration {
+
+    static final String CORE_BASE_PACKAGE = "com.ibrasoft.tcketmanagebackend";
+
+    /**
+     * Appends core's base package to Boot's {@link AutoConfigurationPackages} so the default JPA
+     * auto-configuration scans core's entities/repositories alongside the host's, without the host
+     * needing any tCketManage-specific {@code @EntityScan}/{@code @EnableJpaRepositories}.
+     */
+    static class CorePackageRegistrar implements ImportBeanDefinitionRegistrar {
+        @Override
+        public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata,
+                                            BeanDefinitionRegistry registry) {
+            AutoConfigurationPackages.register(registry, CORE_BASE_PACKAGE);
+        }
+    }
 
     /**
      * Fail-fast at startup if the host disabled {@code spring.jpa.open-in-view}, which core's read
      * endpoints depend on. See {@link OpenInViewRequirement}.
-     * 
+     *
      * Eventually, {@code OpenInViewRequirement} and this bean should be removed once the OSIV refactor lands and
      * core no longer depends on open-in-view. For now, this ensures that a misconfiguration is caught at boot
      * rather than failing silently at request time with 500s.
