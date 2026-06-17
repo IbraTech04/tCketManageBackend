@@ -1,9 +1,12 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanage.app;
 
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
+import com.ibrasoft.tcketmanagebackend.service.EmailService;
+import com.ibrasoft.tcketmanagebackend.service.SmtpEmailService;
+import com.ibrasoft.tcketmanagebackend.service.TicketGenerationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +30,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * This sends a <b>real email</b>, so it is gated behind the
  * {@code RUN_EMAIL_IT} environment
  * variable to keep it out of normal builds/CI. Run it explicitly with:
- * 
+ *
  * <pre>
  *   $env:RUN_EMAIL_IT="true"; ./mvnw -o test -Dtest=TicketEmailDeliveryIT
  * </pre>
- * 
+ *
  * It also requires {@code app.email.enabled=true} plus valid
  * {@code spring.mail.*} credentials in
  * {@code application.properties} (otherwise the SMTP sender isn't wired / can't
