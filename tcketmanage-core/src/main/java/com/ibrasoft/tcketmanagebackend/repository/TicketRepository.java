@@ -20,17 +20,15 @@ public interface TicketRepository extends JpaRepository <Ticket, UUID> {
     @Query("SELECT t FROM Ticket t WHERE t.event.id = :event")
     Page<Ticket> findByEvent(UUID event, Pageable pageable);
 
-    /** All tickets for an event — used by the "resend all" delivery flow. */
     List<Ticket> findByEvent_Id(UUID eventId);
 
-    /** Tickets for an event that have never been successfully emailed — the "send missing" flow. */
+    List<Ticket> findByOrder_Id(UUID orderId);
+
     List<Ticket> findByEvent_IdAndLastTicketSentIsNull(UUID eventId);
 
-    /** Ticket ids for an event — the async "resend all" job only needs ids to dispatch by. */
     @Query("SELECT t.ID FROM Ticket t WHERE t.event.id = :eventId")
     List<UUID> findIdsByEvent_Id(UUID eventId);
 
-    /** Ids of an event's never-sent tickets — the async "send missing" job. */
     @Query("SELECT t.ID FROM Ticket t WHERE t.event.id = :eventId AND t.lastTicketSent IS NULL")
     List<UUID> findIdsByEvent_IdAndLastTicketSentIsNull(UUID eventId);
 
