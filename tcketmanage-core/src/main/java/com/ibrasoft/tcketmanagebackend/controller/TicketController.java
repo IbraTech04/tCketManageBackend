@@ -61,6 +61,32 @@ public class TicketController {
         return TicketResponse.from(ticketService.updateTicket(id, request));
     }
 
+    /**
+     * Revokes a ticket: it is marked {@code REVOKED} (kept for the audit trail, no longer scannable)
+     * and its seat is returned to inventory. Prefer this over {@link #deleteTicket} for any ticket
+     * that legitimately existed — revocation preserves the paper trail.
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PostMapping("/{id}/revoke")
+    public TicketResponse revokeTicket(@PathVariable UUID id) {
+        return TicketResponse.from(ticketService.revokeTicket(id));
+    }
+
+    /**
+     * Reactivates a revoked/cancelled ticket back to {@code ACTIVE}, re-reserving its seat. Returns
+     * {@code 409} if the ticket type is now sold out.
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PostMapping("/{id}/reactivate")
+    public TicketResponse reactivateTicket(@PathVariable UUID id) {
+        return TicketResponse.from(ticketService.reactivateTicket(id));
+    }
+
+    /**
+     * Hard-deletes a ticket, erasing it entirely. Reserved for genuinely erroneous records (e.g. a
+     * test ticket) — for normal voiding use {@link #revokeTicket}, which preserves the audit trail and
+     * releases the seat.
+     */
     @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTicket(@PathVariable UUID id) {

@@ -71,10 +71,21 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<Order> getOrdersByEvent(UUID eventId) {
+        return getOrdersByEvent(eventId, null);
+    }
+
+    /**
+     * Orders for an event, optionally filtered by status. The status filter backs the operator
+     * review queues (e.g. {@code QUARANTINED} orders awaiting an approve/deny decision).
+     */
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersByEvent(UUID eventId, OrderStatus status) {
         if (!eventRepository.existsById(eventId)) {
             throw new ResourceNotFoundException("Event not found: " + eventId);
         }
-        return orderRepository.findByEventId(eventId);
+        return status == null
+                ? orderRepository.findByEventId(eventId)
+                : orderRepository.findByEventIdAndStatus(eventId, status);
     }
 
     @Transactional

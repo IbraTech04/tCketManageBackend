@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.payment;
 
+import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,8 @@ class PaymentConfirmationServiceTest {
     private FulfillmentService fulfillmentService;
     @Mock
     private InventoryService inventoryService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PaymentConfirmationService confirmationService;
@@ -151,5 +155,103 @@ class PaymentConfirmationServiceTest {
         when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> confirmationService.quarantineOrder(id));
+    }
+
+    @Test
+    void quarantine_publishesEvent() {
+        Order o = order(OrderStatus.AWAITING_PAYMENT);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        confirmationService.quarantineOrder(o.getId());
+
+        verify(eventPublisher, times(1)).publishEvent(any(OrderQuarantinedEvent.class));
+    }
+
+    // --- approveQuarantine -------------------------------------------------------------------
+
+    @Test
+    void approve_quarantined_fulfillsAndMarksPaidWithoutReReserving() {
+        Order o = order(OrderStatus.QUARANTINED);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.approveQuarantine(o.getId());
+
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        assertNotNull(result.getPaidAt());
+        verify(fulfillmentService, times(1)).fulfill(o);
+        // Seats were held through the quarantine — no re-reservation should happen.
+        verify(inventoryService, never()).tryReserveAll(any());
+    }
+
+    @Test
+    void approve_alreadyPaid_isIdempotentNoOp() {
+        Order o = order(OrderStatus.PAID);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        Order result = confirmationService.approveQuarantine(o.getId());
+
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        verify(fulfillmentService, never()).fulfill(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void approve_notQuarantined_throws() {
+        Order o = order(OrderStatus.AWAITING_PAYMENT);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        assertThrows(ConflictException.class, () -> confirmationService.approveQuarantine(o.getId()));
+        verify(fulfillmentService, never()).fulfill(any());
+    }
+
+    // --- denyQuarantine ----------------------------------------------------------------------
+
+    @Test
+    void deny_noFunds_releasesSeatsAndCancels() {
+        TicketType ticketType = TicketType.builder().id(UUID.randomUUID()).name("GA").build();
+        Order o = orderWithSeat(OrderStatus.QUARANTINED, ticketType);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.denyQuarantine(o.getId(), false);
+
+        assertEquals(OrderStatus.CANCELLED, result.getStatus());
+        verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+    }
+
+    @Test
+    void deny_fundsReceived_releasesSeatsAndMarksRefundPending() {
+        TicketType ticketType = TicketType.builder().id(UUID.randomUUID()).name("GA").build();
+        Order o = orderWithSeat(OrderStatus.QUARANTINED, ticketType);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.denyQuarantine(o.getId(), true);
+
+        assertEquals(OrderStatus.REFUND_PENDING, result.getStatus());
+        verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+    }
+
+    @Test
+    void deny_alreadyCancelled_isIdempotentNoOp() {
+        Order o = order(OrderStatus.CANCELLED);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        Order result = confirmationService.denyQuarantine(o.getId(), false);
+
+        assertEquals(OrderStatus.CANCELLED, result.getStatus());
+        verify(inventoryService, never()).releaseAll(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void deny_notQuarantined_throws() {
+        Order o = order(OrderStatus.PAID);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+
+        assertThrows(ConflictException.class, () -> confirmationService.denyQuarantine(o.getId(), false));
+        verify(inventoryService, never()).releaseAll(any());
     }
 }
