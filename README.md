@@ -11,17 +11,40 @@ Built with **Spring Boot 3.5 + Java 21**, backed by PostgreSQL and designed for 
 - **Orders & Payments:** Pluggable payment provider system with support for Interac E-Transfer (See [ETRANSFER.MD](./ETRANSFER.MD)). Stripe integration is on the roadmap.
 - **Ticket generation and MailMerge:** Tickets are signed with ED25519, embedded in a QR code, and delivered via email using an HTML/SVG template
 - **QR scanning:** Scan endpoint validates a ticket's cryptographic signature and records scan events per zone
-- **CSV import** — bulk-import attendees from CSV with configurable column mapping
+- **CSV import:** Bulk-import existing attendees from spreadsheets, with automatic ticket generation and email delivery
+
+## Use Cases
+
+tCketManage is a versatile tool designed to solve a multitude of ticketing needs. Anything from end-to-end ticket sales, distribution, and scanning, to simple ticket generation and email delivery for an existing attendee list can be handled by the package. The API is designed to be flexible and modular, allowing users to pick and choose which functionalities they want to use, and to integrate them into their existing workflows.
+
+Use tCketManage for:
+
+- End-to-end ticket sales, distribution, scanning, and management for events of any size
+- Generating and emailing tickets to an existing attendee list (e.g. from a spreadsheet)
+- A backend ticketing engine to power a custom frontend or mobile app
+- A standalone ticketing system with the included admin UI (coming soon)
 
 ## Quick Start
 
-First, copy the example `applications.properties.example` to `application.properties` and adjust any settings as needed (e.g. payment provider, email config, database URL). For local development, the defaults should work out of the box.
+### Prerequisites
+
+- Java 21
+- Docker (Optional but recommended)
+- Maven (Or use the included wrapper `./mvnw`)
+
+In addition to the above, ensure you've copied the example `applications.properties.example` to `application.properties` and adjusted any settings as needed (e.g. payment provider, email config, database URL). Once everything is set up, you can run the app with:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-The app starts on port 8080 with SQLite (`tcketmanage.db`) and a mock payment provider that auto-confirms orders. Swagger UI is available at `http://localhost:8080/swagger-ui.html`.
+Or if you have Docker installed, you can build and run the app in a container:
+
+```bash
+docker compose up --build
+```
+
+The app starts on port 8080 by default, and you can access the API documentation at `http://localhost:8080/swagger-ui.html` once it's running. Consider pairing the backend with the accompanying [tCketManage Frontend](https://github.com/IbraTech04/tCketManageFrontend) for a complete ticketing solution.
 
 ## Configuration
 
