@@ -148,7 +148,7 @@ springdoc.swagger-ui.enabled=false
 
 ## CORS & WebSocket
 
-Browser origins allowed to call `/api/**` and connect to the `/ws` WebSocket. The `*` default is dev-only. You should absolutely restrict this in production to your frontend's actual origin(s): 
+Browser origins allowed to call `/api/**` and connect to the `/ws` WebSocket. The `*` default is dev-only. You should absolutely restrict this in production to your frontend's actual origin(s):
 
 ```properties
 web.cors.allowed-origins=https://app.yourdomain.com

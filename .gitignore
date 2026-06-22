@@ -33,8 +33,8 @@ build/
 .vscode/
 
 ### Keys ###
-src/main/resources/keys/private.pem
-src/main/resources/keys/public.pem
+**/keys/private.pem
+**/keys/public.pem
 
 ### Local SQLite DB ###
 *.db
@@ -43,13 +43,7 @@ src/main/resources/keys/public.pem
 *.pyc
 
 *.properties
-src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/private.pem
-src/test/java/com/ibrasoft/tcketmanagebackend/resources/keys/public.pem
-src/test/resources/keys/private.pem
-src/test/resources/keys/public.pem
-src/main/resources/application.properties
-src/test/resources/application.properties
 scripts/e2e_orders_manual_test.py
 scripts/e2e_orders_test.py
 scripts/__pycache__/stress_test.cpython-310.pyc
-src/test/resources/interac-etransfer-sample.html
+**/src/test/resources/interac-etransfer-sample.html

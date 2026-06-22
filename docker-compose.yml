@@ -33,7 +33,6 @@ services:
       DB_PASSWORD: tcket
       # Keep email OFF for stress runs (see application-prod.properties).
       APP_EMAIL_ENABLED: "false"
-      PAYMENTS_ADMIN_TOKEN: changeme-dev-token
       PAYMENTS_MOCK_AUTOCONFIRM: "true"
       # Pool a bit above the stress client's thread count so the expiry sweep
       # and async email pool aren't starved. Raise to probe pool exhaustion.
