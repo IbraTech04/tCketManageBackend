@@ -16,7 +16,7 @@ import java.util.UUID;
  * {@code OrderController}.
  */
 @RestController
-@RequestMapping("/api/v1/payments")
+@RequestMapping("/tcket/payments")
 @AllArgsConstructor
 public class PaymentWebhookController {
 

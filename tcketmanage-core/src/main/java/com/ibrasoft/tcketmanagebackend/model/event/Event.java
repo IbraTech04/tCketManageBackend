@@ -24,7 +24,7 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "events")
+@Table(name = "tcket:events")
 public class Event {
     @Id
     private UUID id;

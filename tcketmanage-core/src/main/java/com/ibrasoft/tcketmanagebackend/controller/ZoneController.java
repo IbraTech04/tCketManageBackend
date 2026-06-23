@@ -18,7 +18,7 @@ import java.util.UUID;
  * Individual zones. Zone creation is a sub-resource of an event ({@code POST /events/{id}/zones}).
  */
 @RestController
-@RequestMapping("/api/v1/zones")
+@RequestMapping("/tcket/zones")
 @AllArgsConstructor
 public class ZoneController {
 

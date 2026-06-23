@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import java.util.UUID;
 
 @Entity
-@Table(name = "zones")
+@Table(name = "tcket:zones")
 @Data
 @Builder
 @AllArgsConstructor

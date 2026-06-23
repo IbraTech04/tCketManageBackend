@@ -19,7 +19,7 @@ import java.util.UUID;
  * ({@code POST /events/{id}/ticket-types}).
  */
 @RestController
-@RequestMapping("/api/v1/ticket-types")
+@RequestMapping("/tcket/ticket-types")
 @AllArgsConstructor
 public class TicketTypeController {
 

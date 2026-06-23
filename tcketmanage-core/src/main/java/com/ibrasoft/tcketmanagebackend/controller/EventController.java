@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * Individual zones/ticket-types/tickets are addressed at their own top-level controllers.
  */
 @RestController
-@RequestMapping("/api/v1/events")
+@RequestMapping("/tcket/events")
 @AllArgsConstructor
 public class EventController {
     private final EventService eventService;

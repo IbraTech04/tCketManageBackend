@@ -60,7 +60,7 @@ Key properties in `src/main/resources/application.properties`:
 
 ## API Overview
 
-All routes are under `/api/v1/`.
+All routes are under `/tcket/`.
 
 | Resource | Endpoints |
 |---|---|

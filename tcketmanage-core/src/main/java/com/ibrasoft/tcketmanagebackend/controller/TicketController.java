@@ -23,7 +23,7 @@ import java.util.UUID;
  * {@code GET /events/{id}/tickets}.
  */
 @RestController
-@RequestMapping("/api/v1/tickets")
+@RequestMapping("/tcket/tickets")
 @AllArgsConstructor
 public class TicketController {
     private final TicketService ticketService;

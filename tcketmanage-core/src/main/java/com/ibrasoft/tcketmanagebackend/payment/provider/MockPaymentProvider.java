@@ -37,7 +37,7 @@ public class MockPaymentProvider implements PaymentProvider {
             return new PaymentInitiation.Completed(ref);
         }
         return new PaymentInitiation.Instructions(ref,
-                "Mock manual payment. Confirm via POST /api/v1/payments/mock/{orderId}/complete.",
+                "Mock manual payment. Confirm via POST /tcket/payments/mock/{orderId}/complete.",
                 Map.of("referenceCode", context.referenceCode(),
                        "amount", context.amount().toPlainString(),
                        "currency", context.currency()));

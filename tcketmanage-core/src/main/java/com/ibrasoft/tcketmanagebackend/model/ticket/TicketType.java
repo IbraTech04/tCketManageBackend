@@ -28,7 +28,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 @DynamicUpdate
-@Table(name = "ticket_types")
+@Table(name = "tcket:ticket_types")
 public class TicketType {
 
     @Id

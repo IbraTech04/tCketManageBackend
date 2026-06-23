@@ -20,7 +20,7 @@ import java.util.UUID;
  * POJO class representing a Ticket entity.
  */
 @Data
-@Table(name = "tickets",
+@Table(name = "tcket:tickets",
        indexes = @Index(name = "idx_ticket_holder_ref", columnList = "holder_ref"))
 @Entity
 @NoArgsConstructor

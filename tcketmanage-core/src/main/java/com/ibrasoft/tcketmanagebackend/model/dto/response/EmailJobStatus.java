@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * Live, cumulative status of a bulk-email job. The same object is both pushed over STOMP on every
  * update (to {@code /topic/email-jobs/{jobId}}) and returned by the snapshot endpoint
- * ({@code GET /api/v1/email-jobs/{jobId}}) so a late or reconnecting subscriber can catch up — the
+ * ({@code GET /tcket/email-jobs/{jobId}}) so a late or reconnecting subscriber can catch up — the
  * simple broker does not replay missed messages.
  *
  * <p>A single job is advanced by exactly one worker thread, so its counters are mutated serially;

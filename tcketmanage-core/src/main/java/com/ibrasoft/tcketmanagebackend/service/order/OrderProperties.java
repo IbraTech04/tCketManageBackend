@@ -21,7 +21,7 @@ public class OrderProperties {
      *
      * <p>This is a fail-closed safety net <em>near the data</em>; the primary place an embedding host
      * enforces "must be logged in to buy" is still its own security filter chain on
-     * {@code POST /api/v1/orders}. Core ships no filter chain of its own.
+     * {@code POST /tcket/orders}. Core ships no filter chain of its own.
      */
     private boolean requireOwner = false;
 }

@@ -24,7 +24,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "orders",
+@Table(name = "tcket:orders",
        uniqueConstraints = @UniqueConstraint(name = "uk_order_reference_code", columnNames = "reference_code"),
        indexes = @Index(name = "idx_order_external_ref", columnList = "external_ref"))
 public class Order {

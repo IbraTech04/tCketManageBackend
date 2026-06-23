@@ -24,7 +24,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "scan_events",
+@Table(name = "tcket:scan_events",
        indexes = @Index(name = "idx_scan_ticket_zone", columnList = "ticket_id, zone_id"))
 public class ScanEvent {
 

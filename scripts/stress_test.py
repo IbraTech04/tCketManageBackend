@@ -113,7 +113,7 @@ def setup_event(session, base):
             for t in TICKET_PLAN
         ],
     }
-    r = session.post(f"{base}/api/v1/events/full", json=payload, timeout=30)
+    r = session.post(f"{base}/tcket/events/full", json=payload, timeout=30)
     if r.status_code != 201:
         sys.exit(f"Setup failed: POST /events/full -> {r.status_code}\n{r.text[:500]}")
     full = r.json()
@@ -145,7 +145,7 @@ def op_buy(session, base, stats, event_id, plan):
     payload = {"buyerEmail": rand_email(), "eventId": event_id, "items": items}
     t0 = time.perf_counter()
     try:
-        r = session.post(f"{base}/api/v1/orders", json=payload, timeout=30)
+        r = session.post(f"{base}/tcket/orders", json=payload, timeout=30)
     except requests.RequestException as e:
         stats.record("buy", "EXC", (time.perf_counter() - t0) * 1000, finding=repr(e))
         return
@@ -177,7 +177,7 @@ def op_oversell(session, base, stats, event_id, plan):
     payload = {"buyerEmail": rand_email(), "eventId": event_id, "items": items}
     t0 = time.perf_counter()
     try:
-        r = session.post(f"{base}/api/v1/orders", json=payload, timeout=30)
+        r = session.post(f"{base}/tcket/orders", json=payload, timeout=30)
     except requests.RequestException as e:
         stats.record("oversell", "EXC", (time.perf_counter() - t0) * 1000, finding=repr(e))
         return
@@ -196,7 +196,7 @@ def op_cancel(session, base, stats, event_id, plan):
     oid = stats.sample_order() or str(uuid.uuid4())
     t0 = time.perf_counter()
     try:
-        r = session.post(f"{base}/api/v1/orders/{oid}/cancel", timeout=30)
+        r = session.post(f"{base}/tcket/orders/{oid}/cancel", timeout=30)
     except requests.RequestException as e:
         stats.record("cancel", "EXC", (time.perf_counter() - t0) * 1000, finding=repr(e))
         return
@@ -213,7 +213,7 @@ def op_confirm(session, base, stats, event_id, plan):
     t0 = time.perf_counter()
     try:
         r = session.post(
-            f"{base}/api/v1/payments/mock/{oid}/complete",
+            f"{base}/tcket/payments/mock/{oid}/complete",
             headers={"X-Admin-Token": ADMIN_TOKEN},
             timeout=30,
         )
@@ -230,15 +230,15 @@ def op_read(session, base, stats, event_id, plan):
     choice = random.random()
     oid = stats.sample_order()
     if choice < 0.3:
-        url, op = f"{base}/api/v1/events/{event_id}", "read_event"
+        url, op = f"{base}/tcket/events/{event_id}", "read_event"
     elif choice < 0.5:
-        url, op = f"{base}/api/v1/orders?eventId={event_id}", "read_orders"
+        url, op = f"{base}/tcket/orders?eventId={event_id}", "read_orders"
     elif choice < 0.7:
-        url, op = f"{base}/api/v1/events/{event_id}/tickets?size=20", "read_tickets"
+        url, op = f"{base}/tcket/events/{event_id}/tickets?size=20", "read_tickets"
     elif choice < 0.85 and oid:
-        url, op = f"{base}/api/v1/orders/{oid}", "read_order"
+        url, op = f"{base}/tcket/orders/{oid}", "read_order"
     else:
-        url, op = f"{base}/api/v1/orders/{uuid.uuid4()}", "read_phantom"  # expect 404
+        url, op = f"{base}/tcket/orders/{uuid.uuid4()}", "read_phantom"  # expect 404
     t0 = time.perf_counter()
     try:
         r = session.get(url, timeout=30)
@@ -280,7 +280,7 @@ def fetch_issued_counts(session, base, event_id):
     while True:
         try:
             r = session.get(
-                f"{base}/api/v1/events/{event_id}/tickets",
+                f"{base}/tcket/events/{event_id}/tickets",
                 params={"page": page, "size": size},
                 timeout=60,
             )

@@ -19,7 +19,7 @@ import java.util.UUID;
  * unknown id (or one evicted after a restart) returns 404.
  */
 @RestController
-@RequestMapping("/api/v1/email-jobs")
+@RequestMapping("/tcket/email-jobs")
 @AllArgsConstructor
 public class EmailJobController {
 
