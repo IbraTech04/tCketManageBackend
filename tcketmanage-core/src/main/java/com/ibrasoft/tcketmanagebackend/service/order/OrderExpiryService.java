@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -32,7 +32,7 @@ public class OrderExpiryService {
     @Scheduled(fixedDelayString = "${payments.sweep-interval-ms:60000}")
     public void sweepExpiredOrders() {
         List<Order> candidates = orderRepository.findByStatusAndExpiresAtBefore(
-                OrderStatus.AWAITING_PAYMENT, LocalDateTime.now());
+                OrderStatus.AWAITING_PAYMENT, Instant.now());
         for (Order candidate : candidates) {
             try {
                 if (orderTransactions.expireIfStillAwaiting(candidate.getId())) {

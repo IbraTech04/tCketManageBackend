@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,7 +47,7 @@ class ImportServiceTest {
 
     @BeforeEach
     void setUp() {
-        event = Event.builder().id(UUID.randomUUID()).name("Gala").time(LocalDateTime.now())
+        event = Event.builder().id(UUID.randomUUID()).name("Gala").time(OffsetDateTime.now())
                 .location("Hall").description("D").build();
         ga = TicketType.builder().id(UUID.randomUUID()).event(event).name("GA").price(BigDecimal.TEN).build();
         vip = TicketType.builder().id(UUID.randomUUID()).event(event).name("VIP").price(BigDecimal.TEN).build();

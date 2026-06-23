@@ -4,7 +4,7 @@ import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +20,7 @@ class TicketTest {
         testEvent = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Test Event")
-                .time(LocalDateTime.now())
+                .time(OffsetDateTime.now())
                 .location("Test Location")
                 .description("Test Description")
                 .build();

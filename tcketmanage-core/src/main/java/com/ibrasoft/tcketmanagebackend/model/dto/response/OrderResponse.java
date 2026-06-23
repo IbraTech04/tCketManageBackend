@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -25,9 +25,9 @@ public class OrderResponse {
     private String referenceCode;
     private BigDecimal amountTotal;
     private String currency;
-    private LocalDateTime createdAt;
-    private LocalDateTime expiresAt;
-    private LocalDateTime paidAt;
+    private Instant createdAt;
+    private Instant expiresAt;
+    private Instant paidAt;
     private List<OrderItemResponse> items;
 
     /** Present on creation: how the buyer should pay. Null on plain reads. */

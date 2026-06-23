@@ -16,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,7 +37,7 @@ class FulfillmentServiceTest {
 
     private Order orderWithExternalRef(String externalRef) {
         Event event = Event.builder().id(UUID.randomUUID()).name("Gala")
-                .time(LocalDateTime.now()).location("Hall").description("D").build();
+                .time(OffsetDateTime.now()).location("Hall").description("D").build();
         TicketType ticketType = TicketType.builder()
                 .id(UUID.randomUUID()).event(event).name("GA").price(new BigDecimal("10.00")).build();
         OrderItem item = OrderItem.builder()

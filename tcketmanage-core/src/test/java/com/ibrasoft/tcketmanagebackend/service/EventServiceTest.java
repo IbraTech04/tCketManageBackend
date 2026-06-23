@@ -15,7 +15,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,7 +33,7 @@ class EventServiceTest {
     private EventService eventService;
 
     private String eventName;
-    private LocalDateTime eventDate;
+    private OffsetDateTime eventDate;
     private String eventLocation;
     private String eventDescription;
     private Event mockEvent;
@@ -40,7 +41,7 @@ class EventServiceTest {
     @BeforeEach
     void setUp() {
         eventName = "Test Concert";
-        eventDate = LocalDateTime.of(2025, 12, 31, 20, 0);
+        eventDate = OffsetDateTime.of(2025, 12, 31, 20, 0, 0, 0, ZoneOffset.UTC);
         eventLocation = "Concert Hall";
         eventDescription = "New Year's Eve Concert";
 
@@ -133,7 +134,7 @@ class EventServiceTest {
         Event event = Event.builder()
                 .id(eventId)
                 .name("E1")
-                .time(LocalDateTime.now())
+                .time(OffsetDateTime.now())
                 .location("L1")
                 .description("D")
                 .zones(zones)

@@ -9,7 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,7 +40,7 @@ class OrderExpiryServiceTest {
     void sweep_expiresEachCandidateInItsOwnTransaction() {
         Order a = candidate("ORD-1");
         Order b = candidate("ORD-2");
-        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
+        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(Instant.class)))
                 .thenReturn(List.of(a, b));
         when(orderTransactions.expireIfStillAwaiting(any())).thenReturn(true);
 
@@ -54,7 +54,7 @@ class OrderExpiryServiceTest {
     void sweep_oneCandidateFails_othersStillProcessed() {
         Order failing = candidate("ORD-1");
         Order ok = candidate("ORD-2");
-        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
+        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(Instant.class)))
                 .thenReturn(List.of(failing, ok));
         when(orderTransactions.expireIfStillAwaiting(failing.getId()))
                 .thenThrow(new RuntimeException("db hiccup"));
@@ -67,7 +67,7 @@ class OrderExpiryServiceTest {
 
     @Test
     void sweep_noExpiredOrders_noop() {
-        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(LocalDateTime.class)))
+        when(orderRepository.findByStatusAndExpiresAtBefore(eq(OrderStatus.AWAITING_PAYMENT), any(Instant.class)))
                 .thenReturn(List.of());
 
         expiryService.sweepExpiredOrders();

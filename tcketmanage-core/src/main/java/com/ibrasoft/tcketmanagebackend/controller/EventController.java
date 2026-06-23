@@ -62,7 +62,7 @@ public class EventController {
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {
         Event created = eventService.createEvent(
-            request.getName(), request.getTime().toLocalDateTime(), request.getLocation(), request.getDescription());
+            request.getName(), request.getTime(), request.getLocation(), request.getDescription());
         return ResponseEntity.status(HttpStatus.CREATED).body(EventResponse.from(created));
     }
 

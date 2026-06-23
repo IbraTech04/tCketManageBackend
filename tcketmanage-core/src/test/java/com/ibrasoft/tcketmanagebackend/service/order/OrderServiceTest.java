@@ -21,7 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,7 +60,7 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         event = Event.builder()
-                .id(UUID.randomUUID()).name("Gala").time(LocalDateTime.now())
+                .id(UUID.randomUUID()).name("Gala").time(OffsetDateTime.now())
                 .location("Hall").description("D").build();
         ticketType = TicketType.builder()
                 .id(UUID.randomUUID()).event(event).name("GA").price(new BigDecimal("10.00")).build();

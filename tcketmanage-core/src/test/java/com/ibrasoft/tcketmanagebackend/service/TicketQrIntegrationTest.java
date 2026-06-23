@@ -14,7 +14,8 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -46,7 +47,7 @@ class TicketQrIntegrationTest {
                 .name("Test Event")
                 .location("Room 101")
                 .description("Integration test event")
-                .time(LocalDateTime.of(2026, 9, 1, 18, 0))
+                .time(OffsetDateTime.of(2026, 9, 1, 18, 0, 0, 0, ZoneOffset.UTC))
                 .build();
 
         ticket = Ticket.builder()

@@ -16,7 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,7 +42,7 @@ class TicketServiceTest {
         testEvent = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Test Event")
-                .time(LocalDateTime.now())
+                .time(OffsetDateTime.now())
                 .location("Test Location")
                 .description("Test Description")
                 .build();

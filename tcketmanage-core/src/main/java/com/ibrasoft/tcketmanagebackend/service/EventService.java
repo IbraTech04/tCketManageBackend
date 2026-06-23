@@ -18,7 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,7 +42,7 @@ public class EventService {
     /**
      * Creates a new event with a single default zone and returns the created event.
      */
-    public Event createEvent(String name, LocalDateTime date, String location, String description) {
+    public Event createEvent(String name, OffsetDateTime date, String location, String description) {
         Event event = Event.builder()
                 .id(UUID.randomUUID())
                 .name(name)
@@ -70,7 +70,7 @@ public class EventService {
         Event event = Event.builder()
                 .id(UUID.randomUUID())
                 .name(request.getName())
-                .time(request.getTime().toLocalDateTime())
+                .time(request.getTime())
                 .location(request.getLocation())
                 .description(request.getDescription())
                 .zones(new ArrayList<>())
@@ -138,7 +138,7 @@ public class EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
         existing.setName(request.getName());
-        existing.setTime(request.getTime().toLocalDateTime());
+        existing.setTime(request.getTime());
         existing.setLocation(request.getLocation());
         existing.setDescription(request.getDescription());
 

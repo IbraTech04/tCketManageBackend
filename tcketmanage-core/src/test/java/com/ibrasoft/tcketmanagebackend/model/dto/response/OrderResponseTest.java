@@ -5,7 +5,7 @@ import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,7 +15,7 @@ class OrderResponseTest {
 
     private Order.OrderBuilder baseOrder() {
         Event event = Event.builder().id(UUID.randomUUID()).name("Gala")
-                .time(LocalDateTime.now()).location("Hall").description("D").build();
+                .time(OffsetDateTime.now()).location("Hall").description("D").build();
         return Order.builder()
                 .id(UUID.randomUUID())
                 .buyerEmail("buyer@example.com")

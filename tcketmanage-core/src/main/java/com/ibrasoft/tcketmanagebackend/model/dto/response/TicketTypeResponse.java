@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -20,7 +20,7 @@ public class TicketTypeResponse {
     private String name;
     private BigDecimal price;
     private Boolean isActive;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     private List<ZoneEntitlementResponse> entitlements;
 
     public static TicketTypeResponse from(TicketType ticketType) {

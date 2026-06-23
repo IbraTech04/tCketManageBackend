@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
@@ -79,7 +79,7 @@ public class SmtpEmailService implements EmailService {
 
     private String renderBody(Ticket ticket) {
         Event event = ticket.getEvent();
-        LocalDateTime time = event != null ? event.getTime() : null;
+        OffsetDateTime time = event != null ? event.getTime() : null;
 
         Context context = new Context(Locale.ENGLISH);
         context.setVariable("ticket", ticket);

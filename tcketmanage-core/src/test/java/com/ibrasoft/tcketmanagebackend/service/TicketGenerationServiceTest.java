@@ -15,7 +15,8 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,7 +44,7 @@ class TicketGenerationServiceTest {
                 .name("Sacred Commitments")
                 .location("IB 120")
                 .description("A Guide to not committing SSH Keys")
-                .time(LocalDateTime.of(2025, 10, 15, 14, 30))
+                .time(OffsetDateTime.of(2025, 10, 15, 14, 30, 0, 0, ZoneOffset.UTC))
                 .build();
 
         mockTicketType = TicketType.builder()

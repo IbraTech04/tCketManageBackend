@@ -5,7 +5,8 @@ import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -23,7 +24,7 @@ class EventTest {
         testEvent = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Tech Conference 2025")
-                .time(LocalDateTime.of(2025, 9, 15, 9, 0))
+                .time(OffsetDateTime.of(2025, 9, 15, 9, 0, 0, 0, ZoneOffset.UTC))
                 .location("Convention Center")
                 .description("Annual technology conference")
                 .build();
@@ -48,7 +49,7 @@ class EventTest {
         assertEquals("Tech Conference 2025", testEvent.getName());
         assertEquals("Convention Center", testEvent.getLocation());
         assertEquals("Annual technology conference", testEvent.getDescription());
-        assertEquals(LocalDateTime.of(2025, 9, 15, 9, 0), testEvent.getTime());
+        assertEquals(OffsetDateTime.of(2025, 9, 15, 9, 0, 0, 0, ZoneOffset.UTC), testEvent.getTime());
     }
 
     @Test
@@ -210,7 +211,7 @@ class EventTest {
         Event event1 = Event.builder()
                 .id(eventId)
                 .name("Test Event")
-                .time(LocalDateTime.of(2025, 1, 1, 12, 0))
+                .time(OffsetDateTime.of(2025, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC))
                 .location("Test Location")
                 .description("Test Description")
                 .build();
@@ -218,7 +219,7 @@ class EventTest {
         Event event2 = Event.builder()
                 .id(eventId)
                 .name("Test Event")
-                .time(LocalDateTime.of(2025, 1, 1, 12, 0))
+                .time(OffsetDateTime.of(2025, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC))
                 .location("Test Location")
                 .description("Test Description")
                 .build();
@@ -242,7 +243,7 @@ class EventTest {
         assertFalse(testEvent.getDescription().isEmpty());
 
         // Event time should be a sensibly-set value (stable, not wall-clock dependent)
-        assertTrue(testEvent.getTime().isAfter(LocalDateTime.of(2000, 1, 1, 0, 0)));
+        assertTrue(testEvent.getTime().isAfter(OffsetDateTime.of(2000, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)));
     }
 
     @Test
@@ -250,7 +251,7 @@ class EventTest {
         // Given
         UUID eventId = UUID.randomUUID();
         String eventName = "Builder Test Event";
-        LocalDateTime eventTime = LocalDateTime.of(2025, 12, 31, 23, 59);
+        OffsetDateTime eventTime = OffsetDateTime.of(2025, 12, 31, 23, 59, 0, 0, ZoneOffset.UTC);
         String location = "Test Venue";
         String description = "Event created using builder pattern";
 

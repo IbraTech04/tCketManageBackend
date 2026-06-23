@@ -22,7 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,7 +51,7 @@ class OrderTransactionsTest {
     @BeforeEach
     void setUp() {
         event = Event.builder()
-                .id(UUID.randomUUID()).name("Gala").time(LocalDateTime.now())
+                .id(UUID.randomUUID()).name("Gala").time(OffsetDateTime.now())
                 .location("Hall").description("D").build();
         ticketType = TicketType.builder()
                 .id(UUID.randomUUID()).event(event).name("GA").price(new BigDecimal("10.00")).build();
@@ -82,7 +82,7 @@ class OrderTransactionsTest {
 
     @Test
     void reserveAndPersist_ticketTypeFromOtherEvent_throws() {
-        Event other = Event.builder().id(UUID.randomUUID()).name("Other").time(LocalDateTime.now())
+        Event other = Event.builder().id(UUID.randomUUID()).name("Other").time(OffsetDateTime.now())
                 .location("X").description("Y").build();
         TicketType foreign = TicketType.builder().id(UUID.randomUUID()).event(other).name("GA")
                 .price(BigDecimal.ONE).build();

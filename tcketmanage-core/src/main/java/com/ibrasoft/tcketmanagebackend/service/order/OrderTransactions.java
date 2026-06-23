@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -88,8 +88,8 @@ class OrderTransactions {
                 .providerId(provider.id())
                 .referenceCode(generateReferenceCode())
                 .currency("CAD")
-                .createdAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plus(provider.holdDuration()))
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plus(provider.holdDuration()))
                 .items(new ArrayList<>())
                 .build();
 
