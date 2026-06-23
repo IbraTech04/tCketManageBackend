@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 public class OrderResponse {
     private UUID id;
     private String buyerEmail;
+    private String externalRef;
     private UUID eventId;
     private String status;
     private String providerId;
@@ -42,6 +43,7 @@ public class OrderResponse {
         return OrderResponse.builder()
                 .id(order.getId())
                 .buyerEmail(order.getBuyerEmail())
+                .externalRef(order.getExternalRef())
                 .eventId(order.getEvent() != null ? order.getEvent().getId() : null)
                 .status(order.getStatus() != null ? order.getStatus().name() : null)
                 .providerId(order.getProviderId())

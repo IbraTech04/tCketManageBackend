@@ -31,6 +31,8 @@ public class OrderService {
     private final InventoryService inventoryService;
     private final PaymentProviderRegistry providerRegistry;
     private final OrderTransactions orderTransactions;
+    private final OrderOwnerResolver ownerResolver;
+    private final OrderProperties orderProperties;
 
     /**
      * Creates an order. Deliberately NOT {@code @Transactional}: the inventory hold is committed in
@@ -40,10 +42,18 @@ public class OrderService {
      * then recorded in a second transaction.
      */
     public OrderCreationResult createOrder(CreateOrderRequest request) {
+        // Capture who this order belongs to (host-provided; null = anonymous/guest). Resolved on the
+        // request thread before any DB work so a require-owner deployment fails fast without reserving
+        // inventory. The value is opaque to core — see OrderOwnerResolver.
+        String ownerRef = ownerResolver.resolveOwnerRef(request);
+        if (ownerRef == null && orderProperties.isRequireOwner()) {
+            throw new SecurityException("This deployment requires an identified order owner");
+        }
+
         PaymentProvider provider = providerRegistry.resolve(request.getProviderId());
 
         // Phase 1 (committed): reserve seats + persist the pending order, then release the row lock.
-        Order order = orderTransactions.reserveAndPersist(request, provider);
+        Order order = orderTransactions.reserveAndPersist(request, provider, ownerRef);
 
         // Phase 2 (no transaction, no lock held): talk to the payment provider.
         PaymentContext context = new PaymentContext(
@@ -75,6 +85,12 @@ public class OrderService {
             throw new ResourceNotFoundException("Event not found: " + eventId);
         }
         return orderRepository.findByEventId(eventId);
+    }
+
+    /** Operator/support lookup of all orders tagged with a host-owned {@code externalRef}. */
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersByExternalRef(String externalRef) {
+        return orderRepository.findByExternalRef(externalRef);
     }
 
     @Transactional

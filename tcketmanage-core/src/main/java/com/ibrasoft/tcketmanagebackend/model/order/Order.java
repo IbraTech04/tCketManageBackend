@@ -25,7 +25,8 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "orders",
-       uniqueConstraints = @UniqueConstraint(name = "uk_order_reference_code", columnNames = "reference_code"))
+       uniqueConstraints = @UniqueConstraint(name = "uk_order_reference_code", columnNames = "reference_code"),
+       indexes = @Index(name = "idx_order_external_ref", columnList = "external_ref"))
 public class Order {
 
     @Id
@@ -35,6 +36,16 @@ public class Order {
     @Email
     @NotBlank
     private String buyerEmail;
+
+    /**
+     * Opaque, host-owned reference identifying who this order belongs to (e.g. an embedding host's user
+     * id). Core never interprets it; it is populated server-side via {@code OrderOwnerResolver} and
+     * indexed for reverse lookup ({@code OrderRepository.findByExternalRef}). {@code null} for
+     * anonymous/guest orders. Deliberately NOT accepted from the create-order request, so a buyer can't
+     * claim another user's ref.
+     */
+    @Column(name = "external_ref", length = 200)
+    private String externalRef;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "event_id", nullable = false)

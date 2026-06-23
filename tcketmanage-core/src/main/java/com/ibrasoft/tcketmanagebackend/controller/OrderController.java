@@ -2,6 +2,7 @@ package com.ibrasoft.tcketmanagebackend.controller;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.OrderResponse;
+import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderCreationResult;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderService;
@@ -23,10 +24,21 @@ public class OrderController {
     private final OrderService orderService;
     private final PaymentConfirmationService confirmationService;
 
+    // Operator/support order book. Provide exactly one of eventId (all orders for an event) or
+    // externalRef (all orders for a host-owned owner ref). A host's own "my orders for the logged-in
+    // user" should NOT use this role-guarded endpoint; it should query OrderService/OrderRepository
+    // directly with the authenticated user's ref.
     @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
     @GetMapping
-    public List<OrderResponse> getOrders(@RequestParam UUID eventId) {
-        return orderService.getOrdersByEvent(eventId).stream()
+    public List<OrderResponse> getOrders(@RequestParam(required = false) UUID eventId,
+                                         @RequestParam(required = false) String externalRef) {
+        if ((eventId == null) == (externalRef == null)) {
+            throw new IllegalArgumentException("Provide exactly one of 'eventId' or 'externalRef'");
+        }
+        List<Order> orders = eventId != null
+                ? orderService.getOrdersByEvent(eventId)
+                : orderService.getOrdersByExternalRef(externalRef);
+        return orders.stream()
                 .map(OrderResponse::from)
                 .toList();
     }

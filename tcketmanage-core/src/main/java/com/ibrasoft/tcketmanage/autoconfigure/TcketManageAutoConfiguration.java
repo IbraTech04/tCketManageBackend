@@ -1,7 +1,9 @@
 package com.ibrasoft.tcketmanage.autoconfigure;
 
+import com.ibrasoft.tcketmanagebackend.service.order.OrderOwnerResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.annotation.Bean;
@@ -75,5 +77,17 @@ public class TcketManageAutoConfiguration {
     @Bean
     OpenInViewRequirement tcketManageOpenInViewRequirement(Environment environment) {
         return new OpenInViewRequirement(environment);
+    }
+
+    /**
+     * Default {@link OrderOwnerResolver}: tags every order as anonymous/guest ({@code null} owner ref),
+     * preserving core's guest-checkout behavior. An embedding host with its own accounts overrides this
+     * simply by declaring its own {@code OrderOwnerResolver} bean (which wins via
+     * {@link ConditionalOnMissingBean}).
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    OrderOwnerResolver tcketManageDefaultOrderOwnerResolver() {
+        return request -> null;
     }
 }

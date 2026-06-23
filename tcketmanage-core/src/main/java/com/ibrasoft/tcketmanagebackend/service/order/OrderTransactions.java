@@ -75,13 +75,14 @@ class OrderTransactions {
      * before the caller contacts the payment provider.
      */
     @Transactional
-    Order reserveAndPersist(CreateOrderRequest request, PaymentProvider provider) {
+    Order reserveAndPersist(CreateOrderRequest request, PaymentProvider provider, String ownerRef) {
         Event event = eventRepository.findById(request.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
         Order order = Order.builder()
                 .id(UUID.randomUUID())
                 .buyerEmail(request.getBuyerEmail())
+                .externalRef(ownerRef)
                 .event(event)
                 .status(OrderStatus.AWAITING_PAYMENT)
                 .providerId(provider.id())

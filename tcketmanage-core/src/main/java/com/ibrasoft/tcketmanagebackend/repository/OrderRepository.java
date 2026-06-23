@@ -34,5 +34,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     List<Order> findByEventId(UUID eventId);
 
+    List<Order> findByExternalRef(String externalRef);
+
     boolean existsByReferenceCode(String code);
 }

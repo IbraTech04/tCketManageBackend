@@ -70,11 +70,12 @@ class OrderTransactionsTest {
         when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Order order = orderTransactions.reserveAndPersist(request(), provider);
+        Order order = orderTransactions.reserveAndPersist(request(), provider, "owner-1");
 
         assertEquals(OrderStatus.AWAITING_PAYMENT, order.getStatus());
         assertEquals(new BigDecimal("10.00"), order.getAmountTotal());
         assertEquals("mock", order.getProviderId());
+        assertEquals("owner-1", order.getExternalRef());
         assertNotNull(order.getExpiresAt());
         verify(inventoryService, times(1)).reserve(ticketType.getId(), 1);
     }
@@ -93,7 +94,7 @@ class OrderTransactionsTest {
         CreateOrderRequest req = new CreateOrderRequest("buyer@example.com", event.getId(), null,
                 List.of(new OrderItemRequest(foreign.getId(), "A", "B", "a@b.com")));
 
-        assertThrows(IllegalArgumentException.class, () -> orderTransactions.reserveAndPersist(req, provider));
+        assertThrows(IllegalArgumentException.class, () -> orderTransactions.reserveAndPersist(req, provider, null));
         verify(inventoryService, never()).reserve(any(), anyInt());
     }
 

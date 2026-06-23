@@ -20,7 +20,8 @@ import java.util.UUID;
  * POJO class representing a Ticket entity.
  */
 @Data
-@Table(name = "tickets")
+@Table(name = "tickets",
+       indexes = @Index(name = "idx_ticket_holder_ref", columnList = "holder_ref"))
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
@@ -67,6 +68,17 @@ public class Ticket {
     @JoinColumn(name = "ticket_type_id")
     @NotNull
     private TicketType ticketType;
+
+    /**
+     * Opaque, host-owned reference identifying who <em>holds</em> this ticket (i.e. who may use/show
+     * it), as distinct from who purchased the order ({@code Order.externalRef}). Core never interprets
+     * it; it is indexed for reverse lookup ({@code TicketRepository.findByHolderRef}) so an embedding
+     * host can render a "my tickets / wallet" view. Defaulted to the purchasing order's
+     * {@code externalRef} at issuance; any later transfer/reassignment (and its auditing) is the host's
+     * concern. {@code null} for anonymous/guest orders.
+     */
+    @Column(name = "holder_ref", length = 200)
+    private String holderRef;
 
     /**
      * Lifecycle state of the ticket. Defaults to {@code ACTIVE}.

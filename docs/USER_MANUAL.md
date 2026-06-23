@@ -2,13 +2,17 @@
 
 ## Prelude
 
-Thank you for choosing tCketManage as your ticketing solution! This user manual is designed to help you get the most out of tCketManage through its features, configuration options, and API usage. Whether you're organizing a small local event or a large multi-day convention, tCketManage provides the tools you need to manage your ticketing operations efficiently and effectively. From setting up your first event to handling complex ticket sales and scanning scenarios, this guide will walk you through everything you need to know to make your event a success with tCketManage. Let's get started!
+Thank you for choosing tCketManage as your ticketing solution! tCketManage is the first fully open source, fully featured customizable ticketing platform designed to meet the needs of event organizers of all sizes. With tCketManage, you can create and manage events, sell tickets online, and handle ticket scanning and validation with ease.
+
+This user manual is designed to help you get the most out of tCketManage through its features, configuration options, and API usage. Whether you're organizing a small local event or a large multi-day convention, tCketManage provides the tools you need to manage your ticketing operations efficiently and effectively. From setting up your first event to handling complex ticket sales and scanning scenarios, this guide will walk you through everything you need to know to make your event a success with tCketManage. Let's get started!
 
 ## Prerequisites
 
 This guide assumes you have familiarity with the basics of Java development and Spring Boot applications. For the best experience, it's recommended to have Java 21 installed, along with Docker for containerized deployment (optional but recommended).
 
 ## Important Terminology
+
+tCketManage uses specific terminology to describe its core concepts. Understanding these terms is crucial for effectively using the platform:
 
 - **Event**: The base entity representing a ticketed event. An event can have multiple _zones_ and _ticket types_
 = **Zone**: A named area within an event that can have specific access restrictions and ticket entitlements. Think of zones as different sections of a venue, such as VIP areas, general admission, or specific seating sections. You can also use them for more abstract purposes such as Food & Beverage access, or Online vs In-Person access.

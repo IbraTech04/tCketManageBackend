@@ -30,6 +30,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -46,6 +47,8 @@ class OrderServiceTest {
     @Mock private InventoryService inventoryService;
     @Mock private PaymentProviderRegistry providerRegistry;
     @Mock private OrderTransactions orderTransactions;
+    @Mock private OrderOwnerResolver ownerResolver;
+    @Mock private OrderProperties orderProperties;
     @Mock private PaymentProvider provider;
 
     @InjectMocks
@@ -84,7 +87,7 @@ class OrderServiceTest {
     void createOrder_manualProvider_recordsInitiationRef() {
         Order pending = pendingOrder();
         when(providerRegistry.resolve(null)).thenReturn(provider);
-        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), any())).thenReturn(pending);
         PaymentInitiation initiation = new PaymentInitiation.Instructions("pref", "pay please", Map.of());
         when(provider.initiate(any())).thenReturn(initiation);
         when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation)))
@@ -102,7 +105,7 @@ class OrderServiceTest {
     void createOrder_autoConfirmProvider_confirmsImmediately() {
         Order pending = pendingOrder();
         when(providerRegistry.resolve(null)).thenReturn(provider);
-        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), any())).thenReturn(pending);
         PaymentInitiation initiation = new PaymentInitiation.Completed("pref");
         when(provider.initiate(any())).thenReturn(initiation);
         Order paid = pendingOrder();
@@ -119,13 +122,66 @@ class OrderServiceTest {
     void createOrder_providerInitiateFails_releasesHoldAndRethrows() {
         Order pending = pendingOrder();
         when(providerRegistry.resolve(null)).thenReturn(provider);
-        when(orderTransactions.reserveAndPersist(any(), eq(provider))).thenReturn(pending);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), any())).thenReturn(pending);
         when(provider.initiate(any())).thenThrow(new RuntimeException("provider unavailable"));
 
         assertThrows(RuntimeException.class, () -> orderService.createOrder(request()));
 
         verify(orderTransactions, times(1)).releaseHold(pending.getId());
         verify(orderTransactions, never()).finalizeInitiation(any(), any());
+    }
+
+    @Test
+    void createOrder_stampsResolvedOwnerRef() {
+        Order pending = pendingOrder();
+        when(ownerResolver.resolveOwnerRef(any())).thenReturn("lensbridge:user:42");
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), eq("lensbridge:user:42")))
+                .thenReturn(pending);
+        PaymentInitiation initiation = new PaymentInitiation.Instructions("pref", "pay", Map.of());
+        when(provider.initiate(any())).thenReturn(initiation);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation))).thenReturn(pending);
+
+        orderService.createOrder(request());
+
+        verify(orderTransactions).reserveAndPersist(any(), eq(provider), eq("lensbridge:user:42"));
+    }
+
+    @Test
+    void createOrder_guest_passesNullOwnerRef() {
+        Order pending = pendingOrder();
+        // ownerResolver returns null by default (no host resolver) -> guest order
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), isNull())).thenReturn(pending);
+        PaymentInitiation initiation = new PaymentInitiation.Instructions("pref", "pay", Map.of());
+        when(provider.initiate(any())).thenReturn(initiation);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation))).thenReturn(pending);
+
+        orderService.createOrder(request());
+
+        verify(orderTransactions).reserveAndPersist(any(), eq(provider), isNull());
+    }
+
+    @Test
+    void createOrder_requireOwnerWithoutRef_throwsBeforeReserving() {
+        when(orderProperties.isRequireOwner()).thenReturn(true);
+        // ownerResolver returns null by default -> no identified owner
+
+        assertThrows(SecurityException.class, () -> orderService.createOrder(request()));
+
+        verify(providerRegistry, never()).resolve(any());
+        verify(orderTransactions, never()).reserveAndPersist(any(), any(), any());
+    }
+
+    @Test
+    void getOrdersByExternalRef_delegatesToRepository() {
+        Order o = pendingOrder();
+        when(orderRepository.findByExternalRef("ref-1")).thenReturn(List.of(o));
+
+        List<Order> result = orderService.getOrdersByExternalRef("ref-1");
+
+        assertEquals(1, result.size());
+        assertSame(o, result.get(0));
     }
 
     @Test
