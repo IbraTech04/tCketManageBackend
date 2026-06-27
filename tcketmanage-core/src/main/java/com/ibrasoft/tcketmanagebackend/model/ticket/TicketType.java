@@ -60,6 +60,20 @@ public class TicketType {
     private Instant createdAt;
 
     /**
+     * Start of the purchasing window: the instant this type goes on sale. {@code null} means it is on
+     * sale immediately (no lower bound).
+     */
+    @Column(name = "sales_start_at")
+    private Instant salesStartAt;
+
+    /**
+     * End of the purchasing window: the instant this type stops being purchasable. Treated as
+     * exclusive (at exactly this instant the type is closed). {@code null} means no upper bound.
+     */
+    @Column(name = "sales_end_at")
+    private Instant salesEndAt;
+
+    /**
      * Maximum number of seats that may be sold for this ticket type. {@code null} means unlimited.
      */
     private Integer capacity;

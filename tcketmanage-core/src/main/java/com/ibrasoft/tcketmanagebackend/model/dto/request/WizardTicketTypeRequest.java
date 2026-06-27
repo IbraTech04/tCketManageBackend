@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +33,10 @@ public class WizardTicketTypeRequest {
     /** Maximum seats that may be sold for this type. {@code null} means unlimited. */
     @Min(0)
     private Integer capacity;
+
+    private Instant salesStartAt;
+
+    private Instant salesEndAt;
 
     @Valid
     private List<WizardEntitlementRequest> entitlements = new ArrayList<>();

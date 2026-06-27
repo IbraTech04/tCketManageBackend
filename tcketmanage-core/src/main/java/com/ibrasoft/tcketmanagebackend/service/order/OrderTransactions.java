@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service.order;
 
+import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
@@ -99,6 +100,9 @@ class OrderTransactions {
                 .sorted(Comparator.comparing(OrderItemRequest::getTicketTypeId))
                 .toList();
 
+        // One timestamp for the whole order so every item is judged against the same instant.
+        Instant now = Instant.now();
+
         BigDecimal amountTotal = BigDecimal.ZERO;
         for (OrderItemRequest itemReq : sortedItems) {
             TicketType ticketType = ticketTypeRepository.findById(itemReq.getTicketTypeId())
@@ -108,6 +112,9 @@ class OrderTransactions {
                 throw new IllegalArgumentException(
                         "Ticket type " + ticketType.getId() + " does not belong to event " + event.getId());
             }
+
+            // Reject items whose purchasing window isn't open right now (rolls back the whole order).
+            requireOnSale(ticketType, now);
 
             // Reserve one seat; throws ConflictException if sold out (rolls back the whole
             // order).
@@ -190,6 +197,24 @@ class OrderTransactions {
         order.setStatus(OrderStatus.EXPIRED);
         orderRepository.save(order);
         return true;
+    }
+
+    /**
+     * Guards a ticket type's purchasing window: throws {@link ConflictException} if {@code now} falls
+     * before {@code salesStartAt} or at/after {@code salesEndAt}. A {@code null} bound is open on that
+     * side. The thrown exception rolls back the whole order, matching the sold-out path.
+     */
+    private void requireOnSale(TicketType ticketType, Instant now) {
+        Instant start = ticketType.getSalesStartAt();
+        Instant end = ticketType.getSalesEndAt();
+        if (start != null && now.isBefore(start)) {
+            throw new ConflictException(String.format(
+                    "Ticket type '%s' is not on sale until %s", ticketType.getName(), start));
+        }
+        if (end != null && !now.isBefore(end)) {
+            throw new ConflictException(String.format(
+                    "Sales for ticket type '%s' closed at %s", ticketType.getName(), end));
+        }
     }
 
     private String generateRaw() {

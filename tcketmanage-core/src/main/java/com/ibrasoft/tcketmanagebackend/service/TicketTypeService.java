@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,11 +36,15 @@ public class TicketTypeService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
+        validateWindow(request.getSalesStartAt(), request.getSalesEndAt());
+
         TicketType ticketType = TicketType.builder()
                 .event(event)
                 .name(request.getName())
                 .price(request.getPrice())
                 .isActive(request.getIsActive() == null || request.getIsActive())
+                .salesStartAt(request.getSalesStartAt())
+                .salesEndAt(request.getSalesEndAt())
                 .entitlements(new ArrayList<>())
                 .build();
 
@@ -68,9 +73,13 @@ public class TicketTypeService {
         TicketType existing = ticketTypeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found with id: " + id));
 
+        validateWindow(request.getSalesStartAt(), request.getSalesEndAt());
+
         existing.setName(request.getName());
         existing.setPrice(request.getPrice());
         existing.setIsActive(request.getIsActive() == null || request.getIsActive());
+        existing.setSalesStartAt(request.getSalesStartAt());
+        existing.setSalesEndAt(request.getSalesEndAt());
 
         // Replace the entitlement set with the requested one (orphanRemoval clears the old rows).
         existing.getEntitlements().clear();
@@ -85,6 +94,17 @@ public class TicketTypeService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Validates that a sales window is coherent: when both bounds are supplied, the start must fall
+     * strictly before the end. A {@code null} bound is always valid (open on that side).
+     */
+    private void validateWindow(Instant salesStartAt, Instant salesEndAt) {
+        if (salesStartAt != null && salesEndAt != null && !salesStartAt.isBefore(salesEndAt)) {
+            throw new IllegalArgumentException(
+                    "salesStartAt (" + salesStartAt + ") must be before salesEndAt (" + salesEndAt + ")");
+        }
     }
 
     /**

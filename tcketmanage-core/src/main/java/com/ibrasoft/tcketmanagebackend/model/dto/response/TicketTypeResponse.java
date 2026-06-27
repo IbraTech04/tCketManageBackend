@@ -21,6 +21,8 @@ public class TicketTypeResponse {
     private BigDecimal price;
     private Boolean isActive;
     private Instant createdAt;
+    private Instant salesStartAt;
+    private Instant salesEndAt;
     private List<ZoneEntitlementResponse> entitlements;
 
     public static TicketTypeResponse from(TicketType ticketType) {
@@ -35,6 +37,8 @@ public class TicketTypeResponse {
                 .price(ticketType.getPrice())
                 .isActive(ticketType.getIsActive())
                 .createdAt(ticketType.getCreatedAt())
+                .salesStartAt(ticketType.getSalesStartAt())
+                .salesEndAt(ticketType.getSalesEndAt())
                 .entitlements(entitlements)
                 .build();
     }

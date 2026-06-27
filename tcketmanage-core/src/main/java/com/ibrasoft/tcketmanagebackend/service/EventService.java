@@ -101,12 +101,19 @@ public class EventService {
         // Build and persist ticket types, resolving entitlement zone keys against the saved zones.
         List<TicketType> ticketTypes = new ArrayList<>();
         for (WizardTicketTypeRequest typeRequest : request.getTicketTypes()) {
+            if (typeRequest.getSalesStartAt() != null && typeRequest.getSalesEndAt() != null
+                    && !typeRequest.getSalesStartAt().isBefore(typeRequest.getSalesEndAt())) {
+                throw new IllegalArgumentException("Ticket type '" + typeRequest.getName()
+                        + "': salesStartAt must be before salesEndAt");
+            }
             TicketType ticketType = TicketType.builder()
                     .event(savedEvent)
                     .name(typeRequest.getName())
                     .price(typeRequest.getPrice())
                     .isActive(typeRequest.getIsActive() == null || typeRequest.getIsActive())
                     .capacity(typeRequest.getCapacity())
+                    .salesStartAt(typeRequest.getSalesStartAt())
+                    .salesEndAt(typeRequest.getSalesEndAt())
                     .entitlements(new ArrayList<>())
                     .build();
 
