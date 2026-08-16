@@ -28,8 +28,26 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 public interface OrderOwnerResolver {
 
     /**
+     * The owner reference for whoever is making the <em>current request</em>, or {@code null} if the
+     * caller is anonymous.
+     *
+     * <p>This is the primary method because owner refs are needed on reads as well as on creation:
+     * {@link OrderAccessPolicy} compares this against a stored {@code Order.externalRef} (or
+     * {@code Ticket.holderRef}) to decide whether the caller may see or cancel it. The
+     * creation-time signature alone could not answer that, having nothing but a
+     * {@code CreateOrderRequest} to go on.
+     */
+    String currentOwnerRef();
+
+    /**
+     * The owner reference to stamp on a new order. Defaults to {@link #currentOwnerRef()}, which is
+     * what almost every host wants; override only when order creation should be attributed to
+     * someone other than the caller (e.g. staff purchasing on a buyer's behalf).
+     *
      * @param request the order being created (e.g. for access to {@code buyerEmail} or items)
      * @return an opaque owner reference for this order, or {@code null} for an anonymous/guest order
      */
-    String resolveOwnerRef(CreateOrderRequest request);
+    default String resolveOwnerRef(CreateOrderRequest request) {
+        return currentOwnerRef();
+    }
 }

@@ -6,7 +6,6 @@ import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -14,6 +13,10 @@ import java.util.List;
 
 /**
  * Periodically expires unpaid orders past their hold window and releases the inventory they held.
+ *
+ * <p>Scheduling lives in {@link OrderExpiryScheduler} rather than on an {@code @Scheduled}
+ * annotation here, so that embedding core does not switch on annotation-driven scheduling for the
+ * whole host application.
  *
  * <p>The sweep itself is deliberately NOT transactional: each candidate is expired in its own
  * short transaction ({@link OrderTransactions#expireIfStillAwaiting}), so locks are never
@@ -29,7 +32,6 @@ public class OrderExpiryService {
     private final OrderRepository orderRepository;
     private final OrderTransactions orderTransactions;
 
-    @Scheduled(fixedDelayString = "${payments.sweep-interval-ms:60000}")
     public void sweepExpiredOrders() {
         List<Order> candidates = orderRepository.findByStatusAndExpiresAtBefore(
                 OrderStatus.AWAITING_PAYMENT, Instant.now());
