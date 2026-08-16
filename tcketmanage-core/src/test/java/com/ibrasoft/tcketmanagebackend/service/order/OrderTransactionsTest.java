@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service.order;
 
+import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
@@ -22,7 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,7 +53,7 @@ class OrderTransactionsTest {
     @BeforeEach
     void setUp() {
         event = Event.builder()
-                .id(UUID.randomUUID()).name("Gala").time(LocalDateTime.now())
+                .id(UUID.randomUUID()).name("Gala").time(OffsetDateTime.now())
                 .location("Hall").description("D").build();
         ticketType = TicketType.builder()
                 .id(UUID.randomUUID()).event(event).name("GA").price(new BigDecimal("10.00")).build();
@@ -70,18 +72,19 @@ class OrderTransactionsTest {
         when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Order order = orderTransactions.reserveAndPersist(request(), provider);
+        Order order = orderTransactions.reserveAndPersist(request(), provider, "owner-1");
 
         assertEquals(OrderStatus.AWAITING_PAYMENT, order.getStatus());
         assertEquals(new BigDecimal("10.00"), order.getAmountTotal());
         assertEquals("mock", order.getProviderId());
+        assertEquals("owner-1", order.getExternalRef());
         assertNotNull(order.getExpiresAt());
         verify(inventoryService, times(1)).reserve(ticketType.getId(), 1);
     }
 
     @Test
     void reserveAndPersist_ticketTypeFromOtherEvent_throws() {
-        Event other = Event.builder().id(UUID.randomUUID()).name("Other").time(LocalDateTime.now())
+        Event other = Event.builder().id(UUID.randomUUID()).name("Other").time(OffsetDateTime.now())
                 .location("X").description("Y").build();
         TicketType foreign = TicketType.builder().id(UUID.randomUUID()).event(other).name("GA")
                 .price(BigDecimal.ONE).build();
@@ -93,7 +96,49 @@ class OrderTransactionsTest {
         CreateOrderRequest req = new CreateOrderRequest("buyer@example.com", event.getId(), null,
                 List.of(new OrderItemRequest(foreign.getId(), "A", "B", "a@b.com")));
 
-        assertThrows(IllegalArgumentException.class, () -> orderTransactions.reserveAndPersist(req, provider));
+        assertThrows(IllegalArgumentException.class, () -> orderTransactions.reserveAndPersist(req, provider, null));
+        verify(inventoryService, never()).reserve(any(), anyInt());
+    }
+
+    @Test
+    void reserveAndPersist_withinWindow_reservesSeat() {
+        ticketType.setSalesStartAt(Instant.now().minus(Duration.ofHours(1)));
+        ticketType.setSalesEndAt(Instant.now().plus(Duration.ofHours(1)));
+        when(provider.id()).thenReturn("mock");
+        when(provider.holdDuration()).thenReturn(Duration.ofMinutes(30));
+        when(eventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+        when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order order = orderTransactions.reserveAndPersist(request(), provider, null);
+
+        assertEquals(OrderStatus.AWAITING_PAYMENT, order.getStatus());
+        verify(inventoryService, times(1)).reserve(ticketType.getId(), 1);
+    }
+
+    @Test
+    void reserveAndPersist_beforeWindowOpens_throwsAndDoesNotReserve() {
+        ticketType.setSalesStartAt(Instant.now().plus(Duration.ofHours(1)));
+        when(provider.id()).thenReturn("mock");
+        when(provider.holdDuration()).thenReturn(Duration.ofMinutes(30));
+        when(eventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+        when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
+
+        assertThrows(ConflictException.class,
+                () -> orderTransactions.reserveAndPersist(request(), provider, null));
+        verify(inventoryService, never()).reserve(any(), anyInt());
+    }
+
+    @Test
+    void reserveAndPersist_afterWindowCloses_throwsAndDoesNotReserve() {
+        ticketType.setSalesEndAt(Instant.now().minus(Duration.ofHours(1)));
+        when(provider.id()).thenReturn("mock");
+        when(provider.holdDuration()).thenReturn(Duration.ofMinutes(30));
+        when(eventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+        when(ticketTypeRepository.findById(ticketType.getId())).thenReturn(Optional.of(ticketType));
+
+        assertThrows(ConflictException.class,
+                () -> orderTransactions.reserveAndPersist(request(), provider, null));
         verify(inventoryService, never()).reserve(any(), anyInt());
     }
 

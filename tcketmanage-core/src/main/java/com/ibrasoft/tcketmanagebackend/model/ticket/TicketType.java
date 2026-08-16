@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -28,7 +28,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 @DynamicUpdate
-@Table(name = "ticket_types")
+@Table(name = "tcket:ticket_types")
 public class TicketType {
 
     @Id
@@ -57,7 +57,21 @@ public class TicketType {
     private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
+
+    /**
+     * Start of the purchasing window: the instant this type goes on sale. {@code null} means it is on
+     * sale immediately (no lower bound).
+     */
+    @Column(name = "sales_start_at")
+    private Instant salesStartAt;
+
+    /**
+     * End of the purchasing window: the instant this type stops being purchasable. Treated as
+     * exclusive (at exactly this instant the type is closed). {@code null} means no upper bound.
+     */
+    @Column(name = "sales_end_at")
+    private Instant salesEndAt;
 
     /**
      * Maximum number of seats that may be sold for this ticket type. {@code null} means unlimited.
@@ -81,6 +95,6 @@ public class TicketType {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        createdAt = Instant.now();
     }
 }

@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +28,10 @@ public class CreateTicketTypeRequest {
     private BigDecimal price;
 
     private Boolean isActive = true;
+
+    private Instant salesStartAt;
+
+    private Instant salesEndAt;
 
     @Valid
     private List<ZoneEntitlementRequest> entitlements = new ArrayList<>();

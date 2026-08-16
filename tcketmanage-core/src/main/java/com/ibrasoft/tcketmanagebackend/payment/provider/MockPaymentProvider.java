@@ -14,12 +14,12 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * Fully-working in-process provider used for dev and tests. Depending on {@code payments.mock.auto-confirm}
+ * Fully-working in-process provider used for dev and tests. Depending on {@code tcketmanage.payments.mock.auto-confirm}
  * it either settles immediately (returns {@link PaymentInitiation.Completed}) or returns manual
  * {@link PaymentInitiation.Instructions} to exercise the operator-confirmation path. Enabled by default.
  */
 @Service
-@ConditionalOnProperty(prefix = "payments.mock", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "tcketmanage.payments.mock", name = "enabled", havingValue = "true", matchIfMissing = true)
 @AllArgsConstructor
 public class MockPaymentProvider implements PaymentProvider {
 
@@ -37,7 +37,7 @@ public class MockPaymentProvider implements PaymentProvider {
             return new PaymentInitiation.Completed(ref);
         }
         return new PaymentInitiation.Instructions(ref,
-                "Mock manual payment. Confirm via POST /api/v1/payments/mock/{orderId}/complete.",
+                "Mock manual payment. Confirm via POST /tcket/payments/mock/{orderId}/complete.",
                 Map.of("referenceCode", context.referenceCode(),
                        "amount", context.amount().toPlainString(),
                        "currency", context.currency()));

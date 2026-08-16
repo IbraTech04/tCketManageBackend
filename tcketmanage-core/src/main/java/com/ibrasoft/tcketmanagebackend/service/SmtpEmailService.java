@@ -15,14 +15,14 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
  * SMTP {@link EmailService} that renders the {@code ticketEmail} Thymeleaf template and sends one
  * email per ticket, with the rendered QR ticket attached as a PNG. Active only when
- * {@code app.email.enabled=true}; otherwise {@link LoggingEmailService} handles delivery.
+ * {@code tcketmanage.email.enabled=true}; otherwise {@link LoggingEmailService} handles delivery.
  *
  * <p>Delivery failures are logged but not rethrown: tickets are already persisted by the time
  * {@link com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService} calls us, so a transient
@@ -30,14 +30,14 @@ import java.util.Locale;
  */
 @Service
 @AllArgsConstructor
-@ConditionalOnProperty(prefix = "app.email", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "tcketmanage.email", name = "enabled", havingValue = "true")
 public class SmtpEmailService implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpEmailService.class);
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
-    private static final String TEMPLATE_NAME = "ticketEmail";
+    private static final String TEMPLATE_NAME = "tcketmanage/ticketEmail";
     private static final int TICKET_WIDTH = 720;
     // 1:2 to match the template's 360x720 (18:9) viewBox, so the PNG isn't distorted.
     private static final int TICKET_HEIGHT = 1440;
@@ -63,7 +63,7 @@ public class SmtpEmailService implements EmailService {
             helper.setText(body, true);
             // Embed the brand logo as a CID inline image referenced by <img src="cid:logo"> in the
             // template. SVG/data-URI logos are stripped by most mail clients, so this must be a PNG.
-            helper.addInline("logo", new ClassPathResource("templates/tCketManage.png"), "image/png");
+            helper.addInline("logo", new ClassPathResource("templates/tcketmanage/tCketManage.png"), "image/png");
             helper.addAttachment(attachmentName(ticket), new ByteArrayResource(ticketPng), "image/png");
 
             mailSender.send(message);
@@ -79,7 +79,7 @@ public class SmtpEmailService implements EmailService {
 
     private String renderBody(Ticket ticket) {
         Event event = ticket.getEvent();
-        LocalDateTime time = event != null ? event.getTime() : null;
+        OffsetDateTime time = event != null ? event.getTime() : null;
 
         Context context = new Context(Locale.ENGLISH);
         context.setVariable("ticket", ticket);

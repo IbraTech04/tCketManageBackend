@@ -7,15 +7,22 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Deployment-level payment configuration, bound from {@code payments.*}.
+ * Deployment-level payment configuration, bound from {@code tcketmanage.payments.*}.
  */
 @Component
-@ConfigurationProperties(prefix = "payments")
+@ConfigurationProperties(prefix = "tcketmanage.payments")
 @Data
 public class PaymentProperties {
 
     /** Provider id used when an order request doesn't specify one. */
     private String defaultProvider = "mock";
+
+    /**
+     * How often, in milliseconds, unpaid orders past their hold window are expired and their
+     * reserved inventory released. Run by core's own scheduler; see
+     * {@link com.ibrasoft.tcketmanagebackend.service.order.OrderExpiryScheduler}.
+     */
+    private long sweepIntervalMs = 60_000;
 
     private Mock mock = new Mock();
     private Interac interac = new Interac();
@@ -40,7 +47,7 @@ public class PaymentProperties {
 
     /**
      * IMAP inbound config for the e-Transfer auto-confirmation listener, bound from
-     * {@code payments.interac.imap.*}. Gated independently of {@link Interac#enabled}: a deployment
+     * {@code tcketmanage.payments.interac.imap.*}. Gated independently of {@link Interac#enabled}: a deployment
      * can offer the manual reference-code flow without (or before) wiring the mailbox listener.
      */
     @Data
@@ -81,7 +88,7 @@ public class PaymentProperties {
     }
 
     /**
-     * Opt-in DMARC enforcement, bound from {@code payments.interac.imap.dmarc.*}. DMARC is evaluated
+     * Opt-in DMARC enforcement, bound from {@code tcketmanage.payments.interac.imap.dmarc.*}. DMARC is evaluated
      * by the receiving mail server, which records the verdict in an {@code Authentication-Results}
      * header; we read that header rather than re-validating SPF/DKIM ourselves.
      *

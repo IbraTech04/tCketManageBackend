@@ -11,7 +11,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -62,7 +62,7 @@ public class PaymentConfirmationService {
             order.setProviderRef(providerRef);
         }
         order.setStatus(OrderStatus.PAID);
-        order.setPaidAt(LocalDateTime.now());
+        order.setPaidAt(Instant.now());
         fulfillmentService.fulfill(order);
         return orderRepository.save(order);
     }

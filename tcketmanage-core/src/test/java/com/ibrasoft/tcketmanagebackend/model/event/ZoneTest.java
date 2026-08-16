@@ -3,7 +3,8 @@ package com.ibrasoft.tcketmanagebackend.model.event;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +19,7 @@ class ZoneTest {
         testEvent = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Test Event")
-                .time(LocalDateTime.of(2025, 6, 15, 19, 0))
+                .time(OffsetDateTime.of(2025, 6, 15, 19, 0, 0, 0, ZoneOffset.UTC))
                 .location("Test Venue")
                 .description("Test event for zone testing")
                 .build();

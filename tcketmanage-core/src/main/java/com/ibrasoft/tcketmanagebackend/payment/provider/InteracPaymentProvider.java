@@ -19,10 +19,10 @@ import java.util.Map;
  * memo = order reference code + amount); an operator confirms receipt via the manual-confirm
  * endpoint, which routes through
  * {@link com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService}. Activated only when
- * {@code payments.interac.enabled=true}.
+ * {@code tcketmanage.payments.interac.enabled=true}.
  */
 @Service
-@ConditionalOnProperty(prefix = "payments.interac", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "tcketmanage.payments.interac", name = "enabled", havingValue = "true")
 @AllArgsConstructor
 public class InteracPaymentProvider implements PaymentProvider {
 

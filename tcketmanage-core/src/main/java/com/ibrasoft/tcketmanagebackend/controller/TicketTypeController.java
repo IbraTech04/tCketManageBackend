@@ -19,7 +19,7 @@ import java.util.UUID;
  * ({@code POST /events/{id}/ticket-types}).
  */
 @RestController
-@RequestMapping("/api/v1/ticket-types")
+@RequestMapping("${tcketmanage.base-path:/tcket}/ticket-types")
 @AllArgsConstructor
 public class TicketTypeController {
 
@@ -36,14 +36,14 @@ public class TicketTypeController {
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found")));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PutMapping("/{id}")
     public TicketTypeResponse updateTicketType(@PathVariable UUID id,
                                                @Valid @RequestBody UpdateTicketTypeRequest request) {
         return TicketTypeResponse.from(ticketTypeService.updateTicketType(id, request));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTicketType(@PathVariable UUID id) {
         return ticketTypeService.deleteTicketType(id)

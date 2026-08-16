@@ -14,6 +14,13 @@
 
 spring.application.name=tCketManageBackend
 
+# --- Enable the core library ---
+# Everything tCketManage does lives in the tcketmanage-core library, whose
+# auto-configuration is gated on this flag and OFF by default (a host has to opt
+# in). Without it the app starts perfectly happily with no controllers, no
+# migrations and no endpoints — and no error saying why. Leave it on.
+tcketmanage.enabled=true
+
 # --- API docs (Swagger) ---
 springdoc.api-docs.path=/api-docs
 springdoc.swagger-ui.path=/swagger-ui.html
@@ -25,82 +32,120 @@ springdoc.swagger-ui.enabled=true
 spring.datasource.url=jdbc:sqlite:tcketmanage.db
 spring.datasource.driver-class-name=org.sqlite.JDBC
 spring.jpa.database-platform=org.hibernate.community.dialect.SQLiteDialect
-spring.jpa.hibernate.ddl-auto=update
+# Flyway owns core's schema; Hibernate only validates against it. Don't set this
+# to `update` — Hibernate would silently paper over any disagreement between the
+# entities and V1__create_core_schema.sql instead of failing at boot.
+spring.jpa.hibernate.ddl-auto=validate
 # Leave open-in-view at its default (true) — see DOCS.MD; false breaks reads.
 
+# --- Flyway ---
+# Core runs its own migrations under its own history table, before this app's
+# Flyway looks at the database. The schema is therefore already non-empty when
+# Boot's Flyway starts, and Flyway refuses to migrate a non-empty schema whose
+# history table is missing. Baselining tells it the table is simply absent.
+# REQUIRED on the first boot of any app embedding tcketmanage-core.
+spring.flyway.baseline-on-migrate=true
+
 # --- Web / CORS ---
-# Comma-separated allowed origins for /api/** and the /ws WebSocket endpoint.
+# Comma-separated allowed origins for core's endpoints — everything under
+# <base-path>/** plus the <base-path>/ws WebSocket endpoint (base path below).
 # "*" is dev-only — lock this down per deployment.
-web.cors.allowed-origins=*
+# NOTE: this is Spring MVC-level CORS. A host running Spring Security handles
+# CORS in its filter chain, which runs first; such a host configures core's base
+# path in its own CorsConfigurationSource instead.
+tcketmanage.cors.allowed-origins=*
+
+# --- Mount point ---
+# URL prefix every core endpoint lives under. Worth changing when embedding into
+# a host that organises its API around one namespace (e.g. /api/tcket).
+#tcketmanage.base-path=/tcket
+
+# --- STOMP destination ---
+# Broker prefix bulk-email progress is published under; clients subscribe to
+# <topic-prefix>/email-jobs/{jobId}. Only needs changing when embedding into a
+# host whose broker serves prefixes other than /topic — a mismatch is rejected
+# at startup rather than dropping progress messages silently.
+#tcketmanage.websocket.topic-prefix=/topic
 
 # --- Authorization roles ---
-# Role names core's @PreAuthorize checks resolve to (no ROLE_ prefix; hasRole adds it). Defaults
-# are core's native roles. An embedding host can remap these onto its OWN roles without editing core
+# Role names core's authorization checks resolve to (state them without the prefix). Defaults are
+# core's native roles. An embedding host can remap these onto its OWN roles without editing core
 # — e.g. a host with USER/ADMIN/ROOT might set event-manager=ADMIN and admin=ROOT. These only take
 # effect where method security is enabled (the standalone app enables none, so all endpoints are open).
 #tcketmanage.security.roles.scanner=SCANNER
 #tcketmanage.security.roles.event-manager=EVENT_MANAGER
 #tcketmanage.security.roles.admin=ADMIN
+# Authority prefix used when matching. Spring Security's default is ROLE_; restate it here if the
+# host issues authorities under a different prefix (or none), since core compares authorities
+# directly and can't read the host's GrantedAuthorityDefaults bean.
+#tcketmanage.security.roles.prefix=ROLE_
+# A host with a role hierarchy needs no configuration: core's default authorizer expands the
+# caller's authorities through the host's RoleHierarchy bean when there is one, so an inheritance
+# like ROLE_ADMIN > ROLE_SCANNER keeps working. Hosts wanting something other than role checks
+# entirely declare a TcketManageAuthorizer bean instead.
+#
+# Note that a host can replace authorization wholesale by declaring a TcketManageAuthorizer bean;
+# core discovers it by type, so the bean name doesn't matter.
 
 # =============================================================================
 # Payments
 # =============================================================================
 # Active provider when an order doesn't specify one: mock | interac | stripe.
 # Dev default is the mock provider so you can place orders without real money.
-payments.default-provider=mock
+tcketmanage.payments.default-provider=mock
 # Interval (ms) for the expired-order sweep.
-payments.sweep-interval-ms=60000
+tcketmanage.payments.sweep-interval-ms=60000
 
 # --- Mock provider (dev) ---
-payments.mock.enabled=true
+tcketmanage.payments.mock.enabled=true
 # true = orders auto-complete immediately; false = returns instructions and waits.
-payments.mock.auto-confirm=true
-payments.mock.hold-minutes=30
+tcketmanage.payments.mock.auto-confirm=true
+tcketmanage.payments.mock.hold-minutes=30
 
 # --- Stripe (stub only — not yet implemented) ---
-payments.stripe.enabled=false
+tcketmanage.payments.stripe.enabled=false
 
 # --- Interac e-Transfer (manual reference-code flow) ---
 # Set enabled=true and payee-email to activate; switch default-provider=interac too.
-payments.interac.enabled=false
-payments.interac.payee-email=
-payments.interac.hold-hours=48
+tcketmanage.payments.interac.enabled=false
+tcketmanage.payments.interac.payee-email=
+tcketmanage.payments.interac.hold-hours=48
 
 # --- Interac inbound IMAP listener (auto-confirms received deposit emails) ---
 # Gated independently of payments.interac.enabled. Set host/credentials to activate.
-payments.interac.imap.enabled=false
-payments.interac.imap.host=
-payments.interac.imap.port=993
-payments.interac.imap.username=
-payments.interac.imap.password=CHANGE_ME_imap_password
-payments.interac.imap.folder=INBOX
+tcketmanage.payments.interac.imap.enabled=false
+tcketmanage.payments.interac.imap.host=
+tcketmanage.payments.interac.imap.port=993
+tcketmanage.payments.interac.imap.username=
+tcketmanage.payments.interac.imap.password=CHANGE_ME_imap_password
+tcketmanage.payments.interac.imap.folder=INBOX
 # Comma-separated trusted From addresses; mail from anyone else is quarantined.
-payments.interac.imap.expected-senders=notify@payments.interac.ca
-payments.interac.imap.review-folder=NeedsReview
+tcketmanage.payments.interac.imap.expected-senders=notify@payments.interac.ca
+tcketmanage.payments.interac.imap.review-folder=NeedsReview
 # Require the e-Transfer amount to equal the order total exactly (defence-in-depth).
-payments.interac.imap.require-exact-amount=true
+tcketmanage.payments.interac.imap.require-exact-amount=true
 
 # --- Interac DMARC enforcement (opt-in; off keeps From-match-only behaviour) ---
-payments.interac.imap.dmarc.enabled=false
+tcketmanage.payments.interac.imap.dmarc.enabled=false
 # Required when enabled: the authserv-id your receiving server stamps on
 # Authentication-Results (e.g. mail.yourdomain.com).
-payments.interac.imap.dmarc.authserv-id=
+tcketmanage.payments.interac.imap.dmarc.authserv-id=
 # Optional: defaults to the trusted From domain when blank.
-payments.interac.imap.dmarc.aligned-domain=
+tcketmanage.payments.interac.imap.dmarc.aligned-domain=
 
 # =============================================================================
 # Email
 # =============================================================================
 # false = ticket delivery is logged only (no SMTP needed). Set true to send,
 # which also requires the spring.mail.* settings below.
-app.email.enabled=false
-app.email.from=no-reply@tcketmanage.com
-app.email.from-name=tCketManage
+tcketmanage.email.enabled=false
+tcketmanage.email.from=no-reply@tcketmanage.com
+tcketmanage.email.from-name=tCketManage
 # Async dispatch: keep concurrency low — SMTP providers rate-limit.
-app.email.async.concurrency=3
-app.email.async.queue-capacity=500
+tcketmanage.email.async.concurrency=3
+tcketmanage.email.async.queue-capacity=500
 
-# --- SMTP transport (only used when app.email.enabled=true) ---
+# --- SMTP transport (only used when tcketmanage.email.enabled=true) ---
 # Defaults below assume port 465 (implicit TLS / SMTPS).
 spring.mail.host=
 spring.mail.port=465
@@ -117,10 +162,20 @@ spring.mail.properties.mail.smtp.writetimeout=10000
 # and add spring.mail.properties.mail.smtp.starttls.enable=true
 
 # =============================================================================
-# Signing keys (NOT properties — loaded from the classpath)
+# Ticket signing keys
 # =============================================================================
-# Ticket QR signatures use Ed25519. Place a keypair at:
-#   src/main/resources/keys/private.pem  (PKCS#8, SECRET — signs tickets)
-#   src/main/resources/keys/public.pem   (X.509  — verifies scans)
-# The app fails to start without them. Generate a fresh pair per deployment;
-# never reuse dev keys in production.
+# Ticket QR payloads are signed with Ed25519. Generate a pair:
+#   openssl genpkey -algorithm ed25519 -out keys/private.pem
+#   openssl pkey -in keys/private.pem -pubout -out keys/public.pem
+# and point core at it below. These are Spring Resources, so file:, classpath:
+# and anything else Spring understands all work.
+#
+# Do NOT put the pair in src/main/resources/keys — core's build excludes keys/**
+# from its classpath precisely so no key material can ship inside the published
+# library jar. A key baked into an artifact is shared by every deployment built
+# from it, and anyone holding the jar could mint valid tickets for all of them.
+# The paths below resolve relative to the working directory the app is launched
+# from. Generate a fresh pair per deployment; never reuse dev keys in production.
+# The app fails to start if either cannot be resolved.
+tcketmanage.crypto.private-key=${TCKETMANAGE_PRIVATE_KEY:file:keys/private.pem}
+tcketmanage.crypto.public-key=${TCKETMANAGE_PUBLIC_KEY:file:keys/public.pem}

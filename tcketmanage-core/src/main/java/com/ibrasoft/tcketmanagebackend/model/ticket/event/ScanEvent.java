@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -24,7 +24,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "scan_events",
+@Table(name = "tcket:scan_events",
        indexes = @Index(name = "idx_scan_ticket_zone", columnList = "ticket_id, zone_id"))
 public class ScanEvent {
 
@@ -40,5 +40,5 @@ public class ScanEvent {
     private Zone zone;
 
     @Column(nullable = false)
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 }

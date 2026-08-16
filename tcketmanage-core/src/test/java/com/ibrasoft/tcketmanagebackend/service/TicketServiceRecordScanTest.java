@@ -18,7 +18,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,7 +60,7 @@ class TicketServiceRecordScanTest {
                 .name("Tech Conference 2025")
                 .location("Convention Center")
                 .description("Annual technology conference")
-                .time(LocalDateTime.of(2025, 6, 15, 9, 0))
+                .time(OffsetDateTime.of(2025, 6, 15, 9, 0, 0, 0, ZoneOffset.UTC))
                 .build();
 
         mockZone = Zone.builder()

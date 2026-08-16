@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -16,7 +16,7 @@ public class ScanEventResponse {
     private UUID ticketId;
     private UUID zoneId;
     private String zoneName;
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     public static ScanEventResponse from(ScanEvent scanEvent) {
         return ScanEventResponse.builder()

@@ -20,7 +20,7 @@ import org.thymeleaf.context.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
@@ -93,7 +93,7 @@ public class TicketGenerationService {
 
     private Context buildContext(Ticket ticket) throws Exception {
         Event event = ticket.getEvent();
-        LocalDateTime time = event != null ? event.getTime() : null;
+        OffsetDateTime time = event != null ? event.getTime() : null;
 
         Context context = new Context(Locale.ENGLISH);
         context.setVariable("ticketType",

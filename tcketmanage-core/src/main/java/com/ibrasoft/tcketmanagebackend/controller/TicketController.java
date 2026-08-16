@@ -8,6 +8,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
 import com.ibrasoft.tcketmanagebackend.service.TicketService;
+import com.ibrasoft.tcketmanagebackend.service.order.OrderAccessPolicy;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,24 +24,27 @@ import java.util.UUID;
  * {@code GET /events/{id}/tickets}.
  */
 @RestController
-@RequestMapping("/api/v1/tickets")
+@RequestMapping("${tcketmanage.base-path:/tcket}/tickets")
 @AllArgsConstructor
 public class TicketController {
     private final TicketService ticketService;
     private final TicketDeliveryService ticketDeliveryService;
+    private final OrderAccessPolicy accessPolicy;
 
-    // SECURITY (capability-URL): the unguessable ticket UUID authorizes retrieval — holding it is the
-    // permission. Intentionally open so a holder can fetch their own ticket (incl. guest checkout).
-    // Core has no user model, so it cannot verify the caller *owns* this ticket; ownership is the
-    // embedding host's concern. A host needing real enforcement should add a host-provided access
-    // check (optional access-verifier bean / @PostAuthorize), not a role guard here.
+    // SECURITY: no role guard — a holder must be able to fetch their own ticket, guest checkout
+    // included. Ownership is enforced per-entity by OrderAccessPolicy against the ticket's holderRef
+    // rather than by walking to its order: holderRef survives a transfer to a new holder, and tickets
+    // created by CSV import have no order at all. A ticket with no holder falls back to the
+    // capability-URL model, where the unguessable UUID is the permission.
     @GetMapping("/{id}")
     public TicketResponse getTicketById(@PathVariable UUID id) {
-        return TicketResponse.from(ticketService.findTicketById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found")));
+        Ticket ticket = ticketService.findTicketById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
+        accessPolicy.requireAccess(ticket.getHolderRef(), "Ticket");
+        return TicketResponse.from(ticket);
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping
     public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody CreateTicketRequest request) {
         Ticket created = ticketService.createTicket(
@@ -55,13 +59,13 @@ public class TicketController {
         return ResponseEntity.status(HttpStatus.CREATED).body(TicketResponse.from(created));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PutMapping("/{id}")
     public TicketResponse updateTicket(@PathVariable UUID id, @Valid @RequestBody UpdateTicketRequest request) {
         return TicketResponse.from(ticketService.updateTicket(id, request));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTicket(@PathVariable UUID id) {
         return ticketService.deleteTicket(id)
@@ -74,7 +78,7 @@ public class TicketController {
      * received). Returns {@code 202 Accepted} with a job handle; delivery happens asynchronously and
      * its progress/outcome is published over STOMP at {@code /topic/email-jobs/{jobId}}.
      */
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/resend")
     public ResponseEntity<EmailJobAccepted> resendTicket(@PathVariable UUID id) {
         return ResponseEntity.accepted().body(ticketDeliveryService.resend(id));

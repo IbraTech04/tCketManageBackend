@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,9 +30,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByProviderRef(String providerRef);
 
-    List<Order> findByStatusAndExpiresAtBefore(OrderStatus status, LocalDateTime cutoff);
+    List<Order> findByStatusAndExpiresAtBefore(OrderStatus status, Instant cutoff);
 
     List<Order> findByEventId(UUID eventId);
+
+    List<Order> findByExternalRef(String externalRef);
 
     boolean existsByReferenceCode(String code);
 }

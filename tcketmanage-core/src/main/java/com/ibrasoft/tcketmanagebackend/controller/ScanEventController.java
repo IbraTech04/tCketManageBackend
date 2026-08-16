@@ -25,9 +25,9 @@ import java.util.stream.Collectors;
  * and admin roles inherit it).
  */
 @RestController
-@RequestMapping("/api/v1/scans")
+@RequestMapping("${tcketmanage.base-path:/tcket}/scans")
 @AllArgsConstructor
-@PreAuthorize("hasRole(@tcketmanageRoles.scanner)")
+@PreAuthorize("@tcketmanageAuthz.canScan()")
 public class ScanEventController {
 
     private final ScanEventService scanEventService;

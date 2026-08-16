@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class EventResponse {
     private UUID id;
     private String name;
-    private LocalDateTime time;
+    private OffsetDateTime time;
     private String location;
     private String description;
     private List<ZoneResponse> zones;

@@ -40,6 +40,8 @@ public class FulfillmentService {
                     .ticketType(item.getTicketType())
                     .status(TicketStatus.ACTIVE)
                     .order(order)
+                    // Default holder = purchaser. Transfers/reassignment are the host's concern.
+                    .holderRef(order.getExternalRef())
                     .build();
             ticketRepository.save(ticket);
             issuedTicketIds.add(ticket.getID());

@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service.email;
 
+import com.ibrasoft.tcketmanage.autoconfigure.TcketManageProperties;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.service.EmailService;
@@ -34,11 +35,11 @@ import java.util.UUID;
 public class EmailDispatchService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailDispatchService.class);
-    private static final String TOPIC_PREFIX = "/topic/email-jobs/";
 
     private final TicketEmailSender ticketEmailSender;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TcketManageProperties properties;
 
     /** Fire-and-forget delivery of a single ticket. Failures are logged, never thrown. */
     @Async("emailExecutor")
@@ -79,8 +80,15 @@ public class EmailDispatchService {
         return new Delivery(ticket.getEmail(), sent);
     }
 
+    /**
+     * Pushes a snapshot to the job's STOMP destination. The prefix is configuration rather than a
+     * constant because core no longer owns the message broker; see
+     *  {@code WebSocketDestinationRequirement},
+     * which verifies at startup that the broker in force actually serves it.
+     */
     private void publish(EmailJobStatus status) {
-        messagingTemplate.convertAndSend(TOPIC_PREFIX + status.getJobId(), status);
+        messagingTemplate.convertAndSend(
+                properties.getWebsocket().emailJobDestination(status.getJobId()), status);
     }
 
     private record Delivery(String email, boolean success) {}

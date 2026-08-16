@@ -23,7 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -81,7 +81,7 @@ public class ScanEventService {
         ScanEvent saved = scanEventRepository.save(ScanEvent.builder()
                 .ticketId(ticketId)
                 .zone(zone)
-                .timestamp(LocalDateTime.now())
+                .timestamp(Instant.now())
                 .build());
 
         String entryLabel = maxEntries == null

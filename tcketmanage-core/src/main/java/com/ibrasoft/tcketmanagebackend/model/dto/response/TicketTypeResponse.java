@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -20,7 +20,9 @@ public class TicketTypeResponse {
     private String name;
     private BigDecimal price;
     private Boolean isActive;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
+    private Instant salesStartAt;
+    private Instant salesEndAt;
     private List<ZoneEntitlementResponse> entitlements;
 
     public static TicketTypeResponse from(TicketType ticketType) {
@@ -35,6 +37,8 @@ public class TicketTypeResponse {
                 .price(ticketType.getPrice())
                 .isActive(ticketType.getIsActive())
                 .createdAt(ticketType.getCreatedAt())
+                .salesStartAt(ticketType.getSalesStartAt())
+                .salesEndAt(ticketType.getSalesEndAt())
                 .entitlements(entitlements)
                 .build();
     }

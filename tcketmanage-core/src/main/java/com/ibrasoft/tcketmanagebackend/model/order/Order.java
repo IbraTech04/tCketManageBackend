@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +24,9 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "orders",
-       uniqueConstraints = @UniqueConstraint(name = "uk_order_reference_code", columnNames = "reference_code"))
+@Table(name = "tcket:orders",
+       uniqueConstraints = @UniqueConstraint(name = "uk_order_reference_code", columnNames = "reference_code"),
+       indexes = @Index(name = "idx_order_external_ref", columnList = "external_ref"))
 public class Order {
 
     @Id
@@ -35,6 +36,16 @@ public class Order {
     @Email
     @NotBlank
     private String buyerEmail;
+
+    /**
+     * Opaque, host-owned reference identifying who this order belongs to (e.g. an embedding host's user
+     * id). Core never interprets it; it is populated server-side via {@code OrderOwnerResolver} and
+     * indexed for reverse lookup ({@code OrderRepository.findByExternalRef}). {@code null} for
+     * anonymous/guest orders. Deliberately NOT accepted from the create-order request, so a buyer can't
+     * claim another user's ref.
+     */
+    @Column(name = "external_ref", length = 200)
+    private String externalRef;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "event_id", nullable = false)
@@ -63,11 +74,11 @@ public class Order {
     private String currency = "CAD";
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime expiresAt;
+    private Instant expiresAt;
 
-    private LocalDateTime paidAt;
+    private Instant paidAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -76,7 +87,7 @@ public class Order {
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = Instant.now();
         }
     }
 }

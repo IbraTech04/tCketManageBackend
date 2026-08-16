@@ -16,7 +16,7 @@ import java.util.UUID;
  * {@code OrderController}.
  */
 @RestController
-@RequestMapping("/api/v1/payments")
+@RequestMapping("${tcketmanage.base-path:/tcket}/payments")
 @AllArgsConstructor
 public class PaymentWebhookController {
 
@@ -40,7 +40,7 @@ public class PaymentWebhookController {
     /**
      * Test hook to settle a Mock order created in manual mode.
      */
-    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @PostMapping("/mock/{orderId}/complete")
     public OrderResponse completeMockPayment(@PathVariable UUID orderId) {
         return OrderResponse.from(confirmationService.confirmPayment(orderId, null));

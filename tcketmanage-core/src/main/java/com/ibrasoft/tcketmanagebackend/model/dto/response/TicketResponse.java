@@ -16,6 +16,7 @@ public class TicketResponse {
     private String firstName;
     private String lastName;
     private String email;
+    private String holderRef;
     private UUID eventId;
     private TicketTypeResponse ticketType;
 
@@ -28,6 +29,7 @@ public class TicketResponse {
                 .firstName(ticket.getFirstName())
                 .lastName(ticket.getLastName())
                 .email(ticket.getEmail())
+                .holderRef(ticket.getHolderRef())
                 .eventId(ticket.getEvent() != null ? ticket.getEvent().getId() : null)
                 .ticketType(ticket.getTicketType() != null ? TicketTypeResponse.from(ticket.getTicketType()) : null)
                 .lastTicketSent(ticket.getLastTicketSent())

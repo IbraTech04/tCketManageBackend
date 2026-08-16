@@ -7,11 +7,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Default {@link EmailService} that logs instead of sending. Active unless {@code app.email.enabled=true},
+ * Default {@link EmailService} that logs instead of sending. Active unless {@code tcketmanage.email.enabled=true},
  * in which case the SMTP {@link SmtpEmailService} takes over.
  */
 @Service
-@ConditionalOnProperty(prefix = "app.email", name = "enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "tcketmanage.email", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class LoggingEmailService implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingEmailService.class);

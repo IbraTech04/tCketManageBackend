@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Atomic "event creation wizard" payload: event metadata, its zones, and its ticket types (with
  * per-zone entitlements) in a single request. The whole graph is persisted in one transaction by
- * {@code POST /api/v1/events/full}; if any part fails validation, nothing is created.
+ * {@code POST /tcket/events/full}; if any part fails validation, nothing is created.
  *
  * <p>Because zones and ticket types are created together, ticket-type entitlements cannot reference
  * zones by UUID (the UUIDs don't exist yet). Instead each {@link WizardZoneRequest} carries a

@@ -1,0 +1,6 @@
+# Marks TcketManageCoreMigrations as a database initializer so Spring Boot makes
+# entityManagerFactory (and anything else annotated @DependsOnDatabaseInitialization)
+# wait for core's schema migrations. See TcketManageCoreMigrations for why core cannot
+# contribute a Flyway bean and inherit this ordering from Boot's own flywayInitializer.
+org.springframework.boot.sql.init.dependency.DatabaseInitializerDetector=\
+com.ibrasoft.tcketmanage.autoconfigure.TcketManageMigrationsDatabaseInitializerDetector

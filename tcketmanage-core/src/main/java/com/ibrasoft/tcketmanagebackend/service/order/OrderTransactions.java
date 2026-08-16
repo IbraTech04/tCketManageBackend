@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service.order;
 
+import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -75,20 +76,21 @@ class OrderTransactions {
      * before the caller contacts the payment provider.
      */
     @Transactional
-    Order reserveAndPersist(CreateOrderRequest request, PaymentProvider provider) {
+    Order reserveAndPersist(CreateOrderRequest request, PaymentProvider provider, String ownerRef) {
         Event event = eventRepository.findById(request.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
         Order order = Order.builder()
                 .id(UUID.randomUUID())
                 .buyerEmail(request.getBuyerEmail())
+                .externalRef(ownerRef)
                 .event(event)
                 .status(OrderStatus.AWAITING_PAYMENT)
                 .providerId(provider.id())
                 .referenceCode(generateReferenceCode())
                 .currency("CAD")
-                .createdAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plus(provider.holdDuration()))
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plus(provider.holdDuration()))
                 .items(new ArrayList<>())
                 .build();
 
@@ -97,6 +99,9 @@ class OrderTransactions {
         List<OrderItemRequest> sortedItems = request.getItems().stream()
                 .sorted(Comparator.comparing(OrderItemRequest::getTicketTypeId))
                 .toList();
+
+        // One timestamp for the whole order so every item is judged against the same instant.
+        Instant now = Instant.now();
 
         BigDecimal amountTotal = BigDecimal.ZERO;
         for (OrderItemRequest itemReq : sortedItems) {
@@ -107,6 +112,9 @@ class OrderTransactions {
                 throw new IllegalArgumentException(
                         "Ticket type " + ticketType.getId() + " does not belong to event " + event.getId());
             }
+
+            // Reject items whose purchasing window isn't open right now (rolls back the whole order).
+            requireOnSale(ticketType, now);
 
             // Reserve one seat; throws ConflictException if sold out (rolls back the whole
             // order).
@@ -189,6 +197,24 @@ class OrderTransactions {
         order.setStatus(OrderStatus.EXPIRED);
         orderRepository.save(order);
         return true;
+    }
+
+    /**
+     * Guards a ticket type's purchasing window: throws {@link ConflictException} if {@code now} falls
+     * before {@code salesStartAt} or at/after {@code salesEndAt}. A {@code null} bound is open on that
+     * side. The thrown exception rolls back the whole order, matching the sold-out path.
+     */
+    private void requireOnSale(TicketType ticketType, Instant now) {
+        Instant start = ticketType.getSalesStartAt();
+        Instant end = ticketType.getSalesEndAt();
+        if (start != null && now.isBefore(start)) {
+            throw new ConflictException(String.format(
+                    "Ticket type '%s' is not on sale until %s", ticketType.getName(), start));
+        }
+        if (end != null && !now.isBefore(end)) {
+            throw new ConflictException(String.format(
+                    "Sales for ticket type '%s' closed at %s", ticketType.getName(), end));
+        }
     }
 
     private String generateRaw() {

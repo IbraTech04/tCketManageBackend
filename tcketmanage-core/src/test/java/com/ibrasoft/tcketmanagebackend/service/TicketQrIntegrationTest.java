@@ -5,6 +5,7 @@ import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
+import com.ibrasoft.tcketmanagebackend.security.TicketSigningKeys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,8 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -39,14 +41,14 @@ class TicketQrIntegrationTest {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
         KeyPair keyPair = kpg.generateKeyPair();
         objectMapper = new ObjectMapper();
-        cryptoService = new CryptoService(keyPair.getPrivate(), keyPair.getPublic(), objectMapper);
+        cryptoService = new CryptoService(new TicketSigningKeys(keyPair.getPrivate(), keyPair.getPublic()), objectMapper);
 
         Event event = Event.builder()
                 .id(UUID.randomUUID())
                 .name("Test Event")
                 .location("Room 101")
                 .description("Integration test event")
-                .time(LocalDateTime.of(2026, 9, 1, 18, 0))
+                .time(OffsetDateTime.of(2026, 9, 1, 18, 0, 0, 0, ZoneOffset.UTC))
                 .build();
 
         ticket = Ticket.builder()
@@ -120,7 +122,7 @@ class TicketQrIntegrationTest {
             KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
             KeyPair attackerKeys = kpg.generateKeyPair();
             CryptoService attacker = new CryptoService(
-                    attackerKeys.getPrivate(), attackerKeys.getPublic(), objectMapper);
+                    new TicketSigningKeys(attackerKeys.getPrivate(), attackerKeys.getPublic()), objectMapper);
 
             String forgedToken = attacker.sign(TicketQRData.fromTicket(ticket));
 
@@ -214,7 +216,7 @@ class TicketQrIntegrationTest {
 
         private TemplateEngine svgTemplateEngine() {
             ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
-            resolver.setPrefix("templates/");
+            resolver.setPrefix("templates/tcketmanage/");
             resolver.setSuffix(".svg");
             resolver.setTemplateMode(TemplateMode.XML);
             resolver.setCharacterEncoding("UTF-8");

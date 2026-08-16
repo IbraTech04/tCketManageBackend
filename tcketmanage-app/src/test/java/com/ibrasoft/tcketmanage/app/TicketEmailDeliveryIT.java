@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -62,7 +62,7 @@ class TicketEmailDeliveryIT {
                                 .name("Test Event " + suffix)
                                 .description("Automated end-to-end ticket delivery.")
                                 .location("IB 120, University of Toronto Mississauga")
-                                .time(LocalDateTime.now().plusDays(14).withHour(19).withMinute(30).withSecond(0)
+                                .time(OffsetDateTime.now().plusDays(14).withHour(19).withMinute(30).withSecond(0)
                                                 .withNano(0))
                                 .build();
 

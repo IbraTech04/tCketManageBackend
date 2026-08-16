@@ -18,7 +18,7 @@ import java.util.UUID;
  * Individual zones. Zone creation is a sub-resource of an event ({@code POST /events/{id}/zones}).
  */
 @RestController
-@RequestMapping("/api/v1/zones")
+@RequestMapping("${tcketmanage.base-path:/tcket}/zones")
 @AllArgsConstructor
 public class ZoneController {
 
@@ -35,13 +35,13 @@ public class ZoneController {
                 .orElseThrow(() -> new ResourceNotFoundException("Zone not found")));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PutMapping("/{id}")
     public ZoneResponse updateZone(@PathVariable UUID id, @Valid @RequestBody UpdateZoneRequest request) {
         return ZoneResponse.from(zoneService.updateZone(id, request));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteZone(@PathVariable UUID id) {
         return zoneService.deleteZone(id)

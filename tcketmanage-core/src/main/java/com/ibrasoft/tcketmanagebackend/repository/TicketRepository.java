@@ -34,6 +34,9 @@ public interface TicketRepository extends JpaRepository <Ticket, UUID> {
     @Query("SELECT t.ID FROM Ticket t WHERE t.event.id = :eventId AND t.lastTicketSent IS NULL")
     List<UUID> findIdsByEvent_IdAndLastTicketSentIsNull(UUID eventId);
 
+    /** All tickets held by the given host-owned {@code holderRef} — the host's "my tickets" lookup. */
+    List<Ticket> findByHolderRef(String holderRef);
+
     /** Pessimistic Write used when looking up tickets at scan-time */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Ticket t WHERE t.ID = :id")

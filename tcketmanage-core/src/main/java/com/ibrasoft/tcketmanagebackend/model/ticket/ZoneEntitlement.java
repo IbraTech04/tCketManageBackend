@@ -25,7 +25,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "zone_entitlements",
+@Table(name = "tcket:zone_entitlements",
        uniqueConstraints = @UniqueConstraint(
            name = "uk_zone_entitlement_type_zone",
            columnNames = {"ticket_type_id", "zone_id"}

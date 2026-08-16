@@ -10,7 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,7 +24,7 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "events")
+@Table(name = "tcket:events")
 public class Event {
     @Id
     private UUID id;
@@ -36,10 +36,11 @@ public class Event {
     private String name;
 
     /**
-     * The date and time of the event, in the local timezone of the event location.
+     * The scheduled date/time of the event, carrying the event location's UTC offset so it renders
+     * as the intended wall-clock time on tickets/emails regardless of server or viewer timezone.
      */
     @NotNull
-    private LocalDateTime time;
+    private OffsetDateTime time;
 
     /**
      * Event location, e.g., "IB 120"

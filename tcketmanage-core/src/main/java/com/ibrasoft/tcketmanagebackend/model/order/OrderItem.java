@@ -22,7 +22,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "order_items")
+@Table(name = "tcket:order_items")
 public class OrderItem {
 
     @Id

@@ -18,7 +18,7 @@ public class SvgTemplateConfig {
     @Bean
     public TemplateEngine svgTemplateEngine() {
         ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
-        resolver.setPrefix("templates/");
+        resolver.setPrefix("templates/tcketmanage/");
         resolver.setSuffix(".svg");
         resolver.setTemplateMode(TemplateMode.XML);
         resolver.setCharacterEncoding("UTF-8");
