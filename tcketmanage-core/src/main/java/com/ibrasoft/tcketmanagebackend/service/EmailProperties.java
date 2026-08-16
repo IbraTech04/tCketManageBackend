@@ -5,14 +5,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Deployment-level email configuration, bound from {@code app.email.*}.
+ * Deployment-level email configuration, bound from {@code tcketmanage.email.*}.
  *
- * <p>When {@code app.email.enabled=true} the SMTP {@link SmtpEmailService} is wired in and the
+ * <p>When {@code tcketmanage.email.enabled=true} the SMTP {@link SmtpEmailService} is wired in and the
  * usual {@code spring.mail.*} properties (host, port, username, password) must also be set;
  * otherwise the {@link LoggingEmailService} stub stays active.
  */
 @Component
-@ConfigurationProperties(prefix = "app.email")
+@ConfigurationProperties(prefix = "tcketmanage.email")
 @Data
 public class EmailProperties {
 
@@ -25,7 +25,7 @@ public class EmailProperties {
     /** Display name shown alongside the from address. */
     private String fromName = "tCketManage";
 
-    /** Async dispatch tuning, bound from {@code app.email.async.*}. */
+    /** Async dispatch tuning, bound from {@code tcketmanage.email.async.*}. */
     private final Async async = new Async();
 
     /**

@@ -2,6 +2,7 @@ package com.ibrasoft.tcketmanagebackend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
+import com.ibrasoft.tcketmanagebackend.security.TicketSigningKeys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +24,7 @@ class CryptoServiceTest {
     void setUp() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
         testKeyPair = kpg.generateKeyPair();
-        cryptoService = new CryptoService(testKeyPair.getPrivate(), testKeyPair.getPublic(), new ObjectMapper());
+        cryptoService = new CryptoService(new TicketSigningKeys(testKeyPair.getPrivate(), testKeyPair.getPublic()), new ObjectMapper());
     }
 
     private TicketQRData ticket(UUID ticketId, UUID eventId) {
@@ -115,7 +116,7 @@ class CryptoServiceTest {
     void verify_wrongKeyPair_throws() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
         KeyPair other = kpg.generateKeyPair();
-        CryptoService otherService = new CryptoService(other.getPrivate(), other.getPublic(), new ObjectMapper());
+        CryptoService otherService = new CryptoService(new TicketSigningKeys(other.getPrivate(), other.getPublic()), new ObjectMapper());
 
         UUID id = UUID.randomUUID();
         String tokenSignedByOther = otherService.sign(ticket(id, id));

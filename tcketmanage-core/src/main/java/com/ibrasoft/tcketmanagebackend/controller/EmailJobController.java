@@ -19,13 +19,13 @@ import java.util.UUID;
  * unknown id (or one evicted after a restart) returns 404.
  */
 @RestController
-@RequestMapping("/tcket/email-jobs")
+@RequestMapping("${tcketmanage.base-path:/tcket}/email-jobs")
 @AllArgsConstructor
 public class EmailJobController {
 
     private final EmailJobRegistry registry;
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping("/{jobId}")
     public EmailJobStatus getJob(@PathVariable UUID jobId) {
         return registry.get(jobId)

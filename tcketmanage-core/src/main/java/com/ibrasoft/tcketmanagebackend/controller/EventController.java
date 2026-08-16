@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * Individual zones/ticket-types/tickets are addressed at their own top-level controllers.
  */
 @RestController
-@RequestMapping("/tcket/events")
+@RequestMapping("${tcketmanage.base-path:/tcket}/events")
 @AllArgsConstructor
 public class EventController {
     private final EventService eventService;
@@ -58,7 +58,7 @@ public class EventController {
         return EventResponse.from(eventService.getEventById(id));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {
         Event created = eventService.createEvent(
@@ -70,7 +70,7 @@ public class EventController {
      * Atomically creates an entire event — metadata, zones, and ticket types with their per-zone
      * entitlements — from a single wizard payload. Either the whole graph is created or nothing is.
      */
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/full")
     public ResponseEntity<FullEventResponse> createFullEvent(@Valid @RequestBody CreateFullEventRequest request) {
         EventService.EventCreationResult result = eventService.createFullEvent(request);
@@ -78,13 +78,13 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PutMapping("/{id}")
     public EventResponse updateEvent(@PathVariable UUID id, @Valid @RequestBody UpdateEventRequest request) {
         return EventResponse.from(eventService.updateEvent(id, request));
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable UUID id) {
         return eventService.deleteEvent(id)
@@ -102,7 +102,7 @@ public class EventController {
                 .collect(Collectors.toList());
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/zones")
     public ResponseEntity<ZoneResponse> addZoneToEvent(@PathVariable UUID id, @RequestBody AddZoneRequest request) {
         ZoneResponse created = ZoneResponse.from(eventService.addZoneToEvent(id, request.getZoneName()));
@@ -118,7 +118,7 @@ public class EventController {
                 .collect(Collectors.toList());
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/ticket-types")
     public ResponseEntity<TicketTypeResponse> createTicketType(
             @PathVariable UUID id, @Valid @RequestBody CreateTicketTypeRequest request) {
@@ -128,13 +128,13 @@ public class EventController {
 
     // --- Attendee roster + CSV import ---
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping("/{id}/tickets")
     public Page<TicketResponse> getTicketsByEvent(@PathVariable UUID id, Pageable pageable) {
         return ticketService.getTicketsByEvent(id, pageable).map(TicketResponse::from);
     }
 
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping(value = "/{id}/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImportResult> importAttendees(
             @PathVariable UUID id,
@@ -153,7 +153,7 @@ public class EventController {
      * Returns {@code 202 Accepted} immediately; live per-ticket progress and the final sent/failed
      * counts are streamed over STOMP at {@code /topic/email-jobs/{jobId}}.
      */
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/tickets/resend")
     public ResponseEntity<EmailJobAccepted> resendAllTickets(@PathVariable UUID id) {
         return ResponseEntity.accepted().body(ticketDeliveryService.resendAll(id));
@@ -164,7 +164,7 @@ public class EventController {
      * ({@code lastTicketSent == null}) — a safe "fill the gaps" complement to a full resend. Async:
      * see {@link #resendAllTickets} for how progress is reported.
      */
-    @PreAuthorize("hasRole(@tcketmanageRoles.eventManager)")
+    @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/tickets/send-missing")
     public ResponseEntity<EmailJobAccepted> sendMissingTickets(@PathVariable UUID id) {
         return ResponseEntity.accepted().body(ticketDeliveryService.sendMissing(id));

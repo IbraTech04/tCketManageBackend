@@ -23,11 +23,11 @@ import java.util.Properties;
  * Received messages flow to {@link EtransferMailHandler}, which confirms the matching order or
  * quarantines the email.
  *
- * <p>The whole graph is conditional on {@code payments.interac.imap.enabled=true}: a deployment that
+ * <p>The whole graph is conditional on {@code tcketmanage.payments.interac.imap.enabled=true}: a deployment that
  * hasn't configured a mailbox simply never instantiates any of these beans.
  */
 @Configuration
-@ConditionalOnProperty(prefix = "payments.interac.imap", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "tcketmanage.payments.interac.imap", name = "enabled", havingValue = "true")
 public class EtransferImapConfig {
 
     static final String CHANNEL = "etransferMailChannel";

@@ -2,12 +2,11 @@ package com.ibrasoft.tcketmanagebackend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
+import com.ibrasoft.tcketmanagebackend.security.TicketSigningKeys;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.security.PrivateKey;
-import java.security.PublicKey;
 import java.security.Signature;
 import java.util.Base64;
 
@@ -15,8 +14,7 @@ import java.util.Base64;
 @AllArgsConstructor
 public class CryptoService {
 
-    private final PrivateKey privateKey;
-    private final PublicKey publicKey;
+    private final TicketSigningKeys signingKeys;
     private final ObjectMapper objectMapper;
 
     private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
@@ -36,7 +34,7 @@ public class CryptoService {
         String payloadB64 = B64.encodeToString(objectMapper.writeValueAsBytes(data));
 
         Signature sig = Signature.getInstance("Ed25519");
-        sig.initSign(privateKey);
+        sig.initSign(signingKeys.privateKey());
         sig.update(payloadB64.getBytes(StandardCharsets.UTF_8));
 
         return payloadB64 + "." + B64.encodeToString(sig.sign());
@@ -56,7 +54,7 @@ public class CryptoService {
         String signatureB64 = token.substring(dot + 1);
 
         Signature sig = Signature.getInstance("Ed25519");
-        sig.initVerify(publicKey);
+        sig.initVerify(signingKeys.publicKey());
         sig.update(payloadB64.getBytes(StandardCharsets.UTF_8));
 
         if (!sig.verify(B64_DEC.decode(signatureB64))) {
