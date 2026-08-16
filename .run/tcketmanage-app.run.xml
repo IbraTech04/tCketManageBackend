@@ -1,0 +1,22 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tcketmanage-app" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="tcketmanage-app" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.ibrasoft.tcketmanage.app.TcketManageApplication" />
+    <!--
+      Working directory MUST be the module, not the repo root. Two settings resolve against it:
+      tcketmanage.crypto.{private,public}-key (file:keys/*.pem) and the SQLite datasource URL.
+      Run this from the repo root and the app fails at startup with "requires an Ed25519 signing key".
+    -->
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tcketmanage-app" />
+    <!--
+      Its own database file rather than application.properties' tcketmanage.db, which predates
+      core owning its schema: it holds tcket:* tables created by the old ddl-auto=update plus a
+      tcketmanage history baselined at 0, so Flyway tries V1 against tables that already exist.
+      Delete tcketmanage.db (it is gitignored scratch) if you want the default back.
+    -->
+    <option name="PROGRAM_PARAMETERS" value="--spring.datasource.url=jdbc:sqlite:tcketmanage-dev.db" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
