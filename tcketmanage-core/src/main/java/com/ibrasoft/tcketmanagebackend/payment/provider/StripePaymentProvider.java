@@ -11,13 +11,13 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 
 /**
- * Stub for Stripe Checkout. Activated only when {@code payments.stripe.enabled=true}. The real
+ * Stub for Stripe Checkout. Activated only when {@code tcketmanage.payments.stripe.enabled=true}. The real
  * implementation will create a Checkout Session (returning a {@link PaymentInitiation.Redirect}) and
  * confirm via a signature-verified, idempotent webhook routed through
  * {@link com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService}. Not yet wired.
  */
 @Service
-@ConditionalOnProperty(prefix = "payments.stripe", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "tcketmanage.payments.stripe", name = "enabled", havingValue = "true")
 public class StripePaymentProvider implements PaymentProvider {
 
     @Override
