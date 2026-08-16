@@ -12,22 +12,18 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Translates exceptions thrown by controllers/services into a consistent {@link ErrorResponse}
- * with an appropriate HTTP status, replacing the previous pattern of swallowing exceptions into
- * generic 400s.
- *
- * <p>Scoped to core's own controller package so that when embedded in a host application this advice
- * only governs tCketManage endpoints and does not override the host's error contract (and the host's
- * own {@code @RestControllerAdvice} does not govern core's endpoints).
- */
 @RestControllerAdvice(basePackages = "com.ibrasoft.tcketmanagebackend.controller")
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
 
@@ -76,6 +72,11 @@ public class GlobalExceptionHandler {
             fieldErrors.put(fe.getField(), fe.getDefaultMessage());
         }
         return build(HttpStatus.BAD_REQUEST, "Validation failed", req, fieldErrors);
+    }
+
+    @ExceptionHandler({AccessDeniedException.class, AuthenticationException.class})
+    public void rethrowSecurity(RuntimeException ex) {
+        throw ex;
     }
 
     @ExceptionHandler(Exception.class)
