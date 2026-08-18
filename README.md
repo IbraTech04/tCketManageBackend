@@ -48,15 +48,23 @@ The app starts on port 8080 by default, and you can access the API documentation
 
 ## Configuration
 
-Key properties in `src/main/resources/application.properties`:
+Key properties in `tcketmanage-app/src/main/resources/application.properties` (start from
+`application.properties.example` in the same directory, which is annotated in full):
 
 | Property | Default | Description |
 |---|---|---|
-| `payments.default-provider` | `mock` | Active payment provider (`mock`, `stripe`, `interac`) |
-| `payments.mock.auto-confirm` | `true` | Settle mock orders immediately |
-| `payments.interac.payee-email` | _(empty)_ | Required to enable Interac e-Transfer |
-| `app.email.enabled` | `true` | `false` logs emails only; `true` sends via SMTP |
+| `tcketmanage.enabled` | `false` | Must be `true` — everything below is inert without it |
+| `tcketmanage.base-path` | `/tcket` | URL prefix all core endpoints are mounted under |
+| `tcketmanage.payments.default-provider` | `mock` | Active payment provider (`mock`, `stripe`, `interac`) |
+| `tcketmanage.payments.mock.auto-confirm` | `true` | Settle mock orders immediately |
+| `tcketmanage.payments.interac.payee-email` | _(empty)_ | Required to enable Interac e-Transfer |
+| `tcketmanage.payments.<provider>.hold` | `30m` mock/stripe, `48h` interac | How long an unpaid order holds its seats. A duration — `90m`, `48h`, `2d` |
+| `tcketmanage.payments.sweep-interval` | `60s` | Expired-order sweep cadence; orders expire in `[hold, hold + interval]` |
+| `tcketmanage.email.enabled` | `false` | `false` logs emails only; `true` sends via SMTP |
+| `tcketmanage.crypto.private-key` | `classpath:keys/private.pem` | Ed25519 signing key; must be set (core ships none) |
+| `tcketmanage.crypto.public-key` | `classpath:keys/public.pem` | Matching verification key; must be set |
 | `spring.datasource.url` | SQLite | Switch to `jdbc:postgresql://...` for production |
+| `spring.flyway.baseline-on-migrate` | `false` | Must be `true` on first boot — core migrates before Boot's Flyway |
 
 ## API Overview
 

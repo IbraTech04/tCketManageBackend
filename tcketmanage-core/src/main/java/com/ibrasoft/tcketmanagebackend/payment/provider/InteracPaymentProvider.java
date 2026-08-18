@@ -50,7 +50,7 @@ public class InteracPaymentProvider implements PaymentProvider {
 
     @Override
     public Duration holdDuration() {
-        return Duration.ofHours(properties.getInterac().getHoldHours());
+        return properties.getInterac().getHold();
     }
 
     @Override

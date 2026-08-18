@@ -6,8 +6,8 @@ import java.time.Duration;
 
 /**
  * A pluggable payment method. Implementations are Spring beans guarded by
- * {@code @ConditionalOnProperty("payments.<id>.enabled")}, so a deployment activates only the
- * providers it has configured. The order state machine talks only to this interface and to
+ * {@code @ConditionalOnProperty("tcketmanage.payments.<id>.enabled")}, so a deployment activates
+ * only the providers it has configured. The order state machine talks only to this interface and to
  * {@link PaymentConfirmationService}, never to a concrete provider.
  */
 public interface PaymentProvider {
@@ -18,7 +18,10 @@ public interface PaymentProvider {
     /** Begins payment for an order and describes how the buyer should proceed. */
     PaymentInitiation initiate(PaymentContext context);
 
-    /** How long an order using this provider should hold inventory while awaiting payment. */
+    /**
+     * How long an order using this provider should hold inventory while awaiting payment.
+     * Configured per provider under {@code tcketmanage.payments.<id>.hold}.
+     */
     Duration holdDuration();
 
     /**

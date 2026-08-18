@@ -6,6 +6,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -49,6 +51,7 @@ class OrderServiceTest {
     @Mock private OrderTransactions orderTransactions;
     @Mock private OrderOwnerResolver ownerResolver;
     @Mock private OrderProperties orderProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PaymentProvider provider;
 
     @InjectMocks
@@ -195,6 +198,8 @@ class OrderServiceTest {
 
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
         verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+        verify(eventPublisher, times(1)).publishEvent(
+                new OrderNotificationEvent(order.getId(), OrderNotification.CANCELLED));
     }
 
     @Test
@@ -203,5 +208,6 @@ class OrderServiceTest {
         when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
 
         assertThrows(ConflictException.class, () -> orderService.cancelOrder(order.getId()));
+        verifyNoInteractions(eventPublisher);
     }
 }

@@ -6,6 +6,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -42,6 +44,7 @@ class OrderTransactionsTest {
     @Mock private TicketTypeRepository ticketTypeRepository;
     @Mock private InventoryService inventoryService;
     @Mock private PaymentConfirmationService confirmationService;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PaymentProvider provider;
 
     @InjectMocks
@@ -182,6 +185,8 @@ class OrderTransactionsTest {
 
         assertEquals(OrderStatus.CANCELLED, o.getStatus());
         verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+        verify(eventPublisher, times(1)).publishEvent(
+                new OrderNotificationEvent(o.getId(), OrderNotification.CANCELLED));
     }
 
     @Test
@@ -194,6 +199,8 @@ class OrderTransactionsTest {
 
         verify(inventoryService, never()).releaseAll(any());
         verify(orderRepository, never()).save(any());
+        // A paid order must never be told it was cancelled.
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -207,6 +214,8 @@ class OrderTransactionsTest {
 
         assertEquals(OrderStatus.EXPIRED, o.getStatus());
         verify(inventoryService, times(1)).releaseAll(Map.of(ticketType.getId(), 1));
+        verify(eventPublisher, times(1)).publishEvent(
+                new OrderNotificationEvent(o.getId(), OrderNotification.EXPIRED));
     }
 
     @Test
@@ -221,6 +230,8 @@ class OrderTransactionsTest {
 
         verify(inventoryService, never()).releaseAll(any());
         verify(orderRepository, never()).save(any());
+        // The order the sweep lost the race for is somebody else's to announce, not ours.
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -231,5 +242,6 @@ class OrderTransactionsTest {
         assertFalse(orderTransactions.expireIfStillAwaiting(id));
 
         verify(inventoryService, never()).releaseAll(any());
+        verifyNoInteractions(eventPublisher);
     }
 }

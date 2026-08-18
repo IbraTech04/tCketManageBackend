@@ -1,6 +1,8 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
+import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AllArgsConstructor;
@@ -15,18 +17,23 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * SMTP {@link EmailService} that renders the {@code ticketEmail} Thymeleaf template and sends one
- * email per ticket, with the rendered QR ticket attached as a PNG. Active only when
+ * SMTP {@link EmailService} rendering two Thymeleaf templates: {@code ticketEmail}, one message per
+ * ticket with the rendered QR ticket attached as a PNG, and {@code orderNotificationEmail}, one
+ * message per order for the states that issue no tickets at all. Active only when
  * {@code tcketmanage.email.enabled=true}; otherwise {@link LoggingEmailService} handles delivery.
  *
- * <p>Delivery failures are logged but not rethrown: tickets are already persisted by the time
- * {@link com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService} calls us, so a transient
- * SMTP error must not roll back a paid, fulfilled order.
+ * <p>Delivery failures are logged but not rethrown, in both directions. Tickets are already
+ * persisted by the time {@link com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService}
+ * calls us, so a transient SMTP error must not roll back a paid, fulfilled order; and an order that
+ * has expired or been cancelled has already released its inventory, so a bounced notice must not
+ * undo that either.
  */
 @Service
 @AllArgsConstructor
@@ -37,7 +44,9 @@ public class SmtpEmailService implements EmailService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
-    private static final String TEMPLATE_NAME = "tcketmanage/ticketEmail";
+    private static final String TICKET_TEMPLATE_NAME = "tcketmanage/ticketEmail";
+    private static final String ORDER_TEMPLATE_NAME = "tcketmanage/orderNotificationEmail";
+    private static final String LOGO_PATH = "templates/tcketmanage/tCketManage.png";
     private static final int TICKET_WIDTH = 720;
     // 1:2 to match the template's 360x720 (18:9) viewBox, so the PNG isn't distorted.
     private static final int TICKET_HEIGHT = 1440;
@@ -63,7 +72,7 @@ public class SmtpEmailService implements EmailService {
             helper.setText(body, true);
             // Embed the brand logo as a CID inline image referenced by <img src="cid:logo"> in the
             // template. SVG/data-URI logos are stripped by most mail clients, so this must be a PNG.
-            helper.addInline("logo", new ClassPathResource("templates/tcketmanage/tCketManage.png"), "image/png");
+            helper.addInline("logo", new ClassPathResource(LOGO_PATH), "image/png");
             helper.addAttachment(attachmentName(ticket), new ByteArrayResource(ticketPng), "image/png");
 
             mailSender.send(message);
@@ -77,6 +86,56 @@ public class SmtpEmailService implements EmailService {
         }
     }
 
+    @Override
+    public boolean sendOrderNotification(Order order, OrderNotification notification) {
+        try {
+            String body = renderBody(order, notification);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            // RELATED is enough here — the inline logo is the only part; there's no attachment.
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message, MimeMessageHelper.MULTIPART_MODE_RELATED, "UTF-8");
+            helper.setFrom(properties.getFrom(), properties.getFromName());
+            helper.setTo(order.getBuyerEmail());
+            helper.setSubject(notification.subject(eventName(order.getEvent())));
+            helper.setText(body, true);
+            helper.addInline("logo", new ClassPathResource(LOGO_PATH), "image/png");
+
+            mailSender.send(message);
+            log.info("Sent {} notification for order {} ({}) to {}",
+                    notification, order.getId(), order.getReferenceCode(), order.getBuyerEmail());
+            return true;
+        } catch (Exception e) {
+            // Non-fatal, and deliberately not retried: the order has already transitioned and
+            // released its inventory: a bounced courtesy email must not disturb that.
+            log.error("Failed to send {} notification for order {} ({}) to {}",
+                    notification, order.getId(), order.getReferenceCode(), order.getBuyerEmail(), e);
+            return false;
+        }
+    }
+
+    private String renderBody(Order order, OrderNotification notification) {
+        Event event = order.getEvent();
+        OffsetDateTime time = event != null ? event.getTime() : null;
+
+        Context context = new Context(Locale.ENGLISH);
+        context.setVariable("order", order);
+        context.setVariable("notification", notification);
+        context.setVariable("event", event);
+        context.setVariable("eventDate", time != null ? time.format(DATE_FORMAT) : "");
+        context.setVariable("eventTime", time != null ? time.format(TIME_FORMAT) : "");
+        context.setVariable("amount", formatAmount(order));
+        context.setVariable("seatCount", order.getItems() != null ? order.getItems().size() : 0);
+
+        return templateEngine.process(ORDER_TEMPLATE_NAME, context);
+    }
+
+    /** e.g. {@code $75.00 CAD}. Currency-symbol-agnostic on purpose — the code carries the meaning. */
+    private String formatAmount(Order order) {
+        BigDecimal total = order.getAmountTotal() != null ? order.getAmountTotal() : BigDecimal.ZERO;
+        return "$" + total.setScale(2, RoundingMode.HALF_UP) + " " + order.getCurrency();
+    }
+
     private String renderBody(Ticket ticket) {
         Event event = ticket.getEvent();
         OffsetDateTime time = event != null ? event.getTime() : null;
@@ -87,13 +146,16 @@ public class SmtpEmailService implements EmailService {
         context.setVariable("eventDate", time != null ? time.format(DATE_FORMAT) : "");
         context.setVariable("eventTime", time != null ? time.format(TIME_FORMAT) : "");
 
-        return templateEngine.process(TEMPLATE_NAME, context);
+        return templateEngine.process(TICKET_TEMPLATE_NAME, context);
     }
 
     private String subjectFor(Ticket ticket) {
-        Event event = ticket.getEvent();
-        String eventName = event != null && event.getName() != null ? event.getName() : "your event";
-        return "Your ticket for " + eventName;
+        return "Your ticket for " + eventName(ticket.getEvent());
+    }
+
+    /** Subject-line-safe event name, falling back to a phrase that still reads as a sentence. */
+    private String eventName(Event event) {
+        return event != null && event.getName() != null ? event.getName() : "your event";
     }
 
     private String attachmentName(Ticket ticket) {

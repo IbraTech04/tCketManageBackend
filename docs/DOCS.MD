@@ -42,26 +42,39 @@ tCketManage supports three payment providers:
 - `interac`: The real Interac e-Transfer flow, which is popular in Canada. Listens to an email inbox for payment notifications and confirms orders based on matching reference codes and amounts.
 - `stripe`: A stub for future Stripe integration; enabling it currently throws an exception until the real implementation is complete.
 
+> [!IMPORTANT]
+> Every key below is written in full, starting with `tcketmanage.`. Spring silently ignores a
+> property it can't bind, so a key pasted without the prefix has no effect and produces no warning.
+
+**Durations.** Every time-valued payment property is a duration and takes a unit suffix — `30s`,
+`90m`, `48h`, `2d`. A bare number is read as milliseconds. Each provider states its hold window
+under the same `<provider>.hold` key, so the providers stay comparable and changing a hold from
+hours to minutes is a value edit rather than a property rename.
+
 Pick the active provider, then configure it. The provider an order uses (when it doesn't ask for a specific one) is set by:
 
 ```properties
-payments.default-provider=mock      # mock | interac | stripe
+tcketmanage.payments.default-provider=mock      # mock | interac | stripe
 ```
 
 The expired-order sweep runs on a timer; lower it to expire unpaid holds sooner:
 
 ```properties
-payments.sweep-interval-ms=60000    # default 60s
+tcketmanage.payments.sweep-interval=60s         # default 60s
 ```
+
+This is the sweep cadence, not the deadline. An order actually expires somewhere in
+`[hold, hold + sweep-interval]`, so keep the interval well under the shortest provider hold —
+a 60s sweep against a 30s hold means holds live roughly twice as long as configured.
 
 ### Mock provider (dev/testing)
 
 A fake provider for local work — no real money.
 
 ```properties
-payments.mock.enabled=true
-payments.mock.auto-confirm=true     # true: orders settle instantly. false: wait like a real flow
-payments.mock.hold-minutes=30       # how long an unpaid order is held before expiry
+tcketmanage.payments.mock.enabled=true
+tcketmanage.payments.mock.auto-confirm=true     # true: orders settle instantly. false: wait like a real flow
+tcketmanage.payments.mock.hold=30m              # how long an unpaid order is held before expiry
 ```
 
 ### Interac e-Transfer
@@ -69,10 +82,10 @@ payments.mock.hold-minutes=30       # how long an unpaid order is held before ex
 The real payment path. **Turn it on:**
 
 ```properties
-payments.default-provider=interac
-payments.interac.enabled=true
-payments.interac.payee-email=you@yourdomain.com   # required; shown to buyers
-payments.interac.hold-hours=48                     # e-transfers settle slowly, hence hours
+tcketmanage.payments.default-provider=interac
+tcketmanage.payments.interac.enabled=true
+tcketmanage.payments.interac.payee-email=you@yourdomain.com   # required; shown to buyers
+tcketmanage.payments.interac.hold=48h                         # e-transfers settle slowly; 2d and 2880m are the same thing
 ```
 
 This alone gives you the **manual flow**: buyers send an e-Transfer with a reference code, and an operator confirms the order via the admin endpoint.
@@ -83,17 +96,17 @@ notification, matches the memo to an order's reference code, checks the amount, 
 anything it can't cleanly match to a review folder for an operator.
 
 ```properties
-payments.interac.imap.enabled=true
-payments.interac.imap.host=imap.yourprovider.com
-payments.interac.imap.port=993
-payments.interac.imap.username=you@yourdomain.com
-payments.interac.imap.password=...
-payments.interac.imap.folder=INBOX
-payments.interac.imap.review-folder=NeedsReview
+tcketmanage.payments.interac.imap.enabled=true
+tcketmanage.payments.interac.imap.host=imap.yourprovider.com
+tcketmanage.payments.interac.imap.port=993
+tcketmanage.payments.interac.imap.username=you@yourdomain.com
+tcketmanage.payments.interac.imap.password=...
+tcketmanage.payments.interac.imap.folder=INBOX
+tcketmanage.payments.interac.imap.review-folder=NeedsReview
 # Comma-separated From addresses trusted as genuine Interac mail; everything else is quarantined.
-payments.interac.imap.expected-senders=notify@payments.interac.ca
+tcketmanage.payments.interac.imap.expected-senders=notify@payments.interac.ca
 # Require the deposit amount to match the order total exactly (recommended).
-payments.interac.imap.require-exact-amount=true
+tcketmanage.payments.interac.imap.require-exact-amount=true
 ```
 
 **DMARC hardening (optional):** in addition to the trusted-sender list, you can require that mail
@@ -102,9 +115,9 @@ default (so providers that don't stamp the header still work); turn it on for ex
 protection:
 
 ```properties
-payments.interac.imap.dmarc.enabled=true
-payments.interac.imap.dmarc.authserv-id=mail.yourdomain.com   # required when enabled
-payments.interac.imap.dmarc.aligned-domain=                   # optional; defaults to the From domain
+tcketmanage.payments.interac.imap.dmarc.enabled=true
+tcketmanage.payments.interac.imap.dmarc.authserv-id=mail.yourdomain.com   # required when enabled
+tcketmanage.payments.interac.imap.dmarc.aligned-domain=                   # optional; defaults to the From domain
 ```
 
 ## Email

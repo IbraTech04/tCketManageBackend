@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,8 @@ import java.util.UUID;
 public interface TicketTypeRepository extends JpaRepository<TicketType, UUID> {
 
     List<TicketType> findByEvent_Id(UUID eventId);
+
+    List<TicketType> findByEvent_IdIn(Collection<UUID> eventIds);
 
     List<TicketType> findByEvent_IdAndIsActive(UUID eventId, Boolean isActive);
 

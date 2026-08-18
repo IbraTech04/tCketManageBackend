@@ -3,16 +3,19 @@ package com.ibrasoft.tcketmanagebackend.payment;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
+import com.ibrasoft.tcketmanagebackend.service.order.OrderNotificationEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,8 @@ class PaymentConfirmationServiceTest {
     private FulfillmentService fulfillmentService;
     @Mock
     private InventoryService inventoryService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private PaymentConfirmationService confirmationService;
@@ -57,6 +62,8 @@ class PaymentConfirmationServiceTest {
         assertNotNull(result.getPaidAt());
         assertEquals("ref-1", result.getProviderRef());
         verify(fulfillmentService, times(1)).fulfill(o);
+        // A happy-path order speaks for itself through the ticket emails — no order notice.
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -96,6 +103,8 @@ class PaymentConfirmationServiceTest {
         assertEquals(OrderStatus.PAID, result.getStatus());
         assertNotNull(result.getPaidAt());
         verify(fulfillmentService, times(1)).fulfill(o);
+        // The order was rescued: the earlier expiry notice stands, and nothing further is sent.
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -112,6 +121,9 @@ class PaymentConfirmationServiceTest {
         assertEquals("ref-late", result.getProviderRef());
         assertNull(result.getPaidAt());
         verify(fulfillmentService, never()).fulfill(any());
+        // The buyer has been charged for tickets that will never arrive; they have to be told.
+        verify(eventPublisher, times(1)).publishEvent(
+                new OrderNotificationEvent(o.getId(), OrderNotification.REFUND_PENDING));
     }
 
     @Test
@@ -132,6 +144,8 @@ class PaymentConfirmationServiceTest {
 
         assertEquals(OrderStatus.QUARANTINED, result.getStatus());
         verify(fulfillmentService, never()).fulfill(any());
+        verify(eventPublisher, times(1)).publishEvent(
+                new OrderNotificationEvent(o.getId(), OrderNotification.QUARANTINED));
     }
 
     @Test
@@ -143,6 +157,7 @@ class PaymentConfirmationServiceTest {
 
         assertEquals(OrderStatus.PAID, result.getStatus());
         verify(orderRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

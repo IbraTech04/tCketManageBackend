@@ -4,10 +4,17 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
  * Deployment-level payment configuration, bound from {@code tcketmanage.payments.*}.
+ *
+ * <p>Every time-valued property here is a {@link Duration}, so it is written with an explicit unit
+ * suffix — {@code 30s}, {@code 90m}, {@code 48h}, {@code 2d}. A bare number is read as milliseconds.
+ * Each provider states its hold window under the same {@code <provider>.hold} key rather than in a
+ * unit baked into the property name, so changing "48 hours" to "90 minutes" is a value edit and the
+ * providers stay comparable at a glance.
  */
 @Component
 @ConfigurationProperties(prefix = "tcketmanage.payments")
@@ -18,13 +25,17 @@ public class PaymentProperties {
     private String defaultProvider = "mock";
 
     /**
-     * How often, in milliseconds, unpaid orders past their hold window are expired and their
-     * reserved inventory released. Run by core's own scheduler; see
+     * How often unpaid orders past their hold window are expired and their reserved inventory
+     * released. Run by core's own scheduler; see
      * {@link com.ibrasoft.tcketmanagebackend.service.order.OrderExpiryScheduler}.
+     *
+     * <p>This is the sweep cadence, not the deadline: an order actually expires somewhere in
+     * {@code [hold, hold + sweep-interval]}, so keep it well under the shortest provider hold.
      */
-    private long sweepIntervalMs = 60_000;
+    private Duration sweepInterval = Duration.ofSeconds(60);
 
     private Mock mock = new Mock();
+    private Stripe stripe = new Stripe();
     private Interac interac = new Interac();
 
     @Data
@@ -32,14 +43,33 @@ public class PaymentProperties {
         private boolean enabled = true;
         /** When true, {@code initiate} auto-confirms (Completed); when false, returns Instructions. */
         private boolean autoConfirm = true;
-        private long holdMinutes = 30;
+        /** How long an unpaid mock order holds its seats. */
+        private Duration hold = Duration.ofMinutes(30);
+    }
+
+    /**
+     * Stripe Checkout, bound from {@code tcketmanage.payments.stripe.*}.
+     *
+     * <p>Note that {@code stripe.enabled} is read only by the {@code @ConditionalOnProperty} on
+     * {@link com.ibrasoft.tcketmanagebackend.payment.provider.StripePaymentProvider} and has no field
+     * here — bean gating happens before this class is bound, so the flag has to be read from the
+     * environment directly.
+     */
+    @Data
+    public static class Stripe {
+        /** How long an unpaid Stripe order holds its seats while the Checkout session is open. */
+        private Duration hold = Duration.ofMinutes(30);
     }
 
     @Data
     public static class Interac {
         private boolean enabled = false;
         private String payeeEmail;
-        private long holdHours = 48;
+        /**
+         * How long an unpaid e-Transfer order holds its seats. Generous by default because
+         * e-Transfers settle slowly — the buyer may need to clear their bank's send limits.
+         */
+        private Duration hold = Duration.ofHours(48);
 
         /** Inbound IMAP listener that auto-confirms orders from received e-Transfer emails. */
         private Imap imap = new Imap();
@@ -47,7 +77,7 @@ public class PaymentProperties {
 
     /**
      * IMAP inbound config for the e-Transfer auto-confirmation listener, bound from
-     * {@code tcketmanage.payments.interac.imap.*}. Gated independently of {@link Interac#enabled}: a deployment
+     * {@code payments.interac.imap.*}. Gated independently of {@link Interac#enabled}: a deployment
      * can offer the manual reference-code flow without (or before) wiring the mailbox listener.
      */
     @Data
