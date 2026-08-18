@@ -1,5 +1,7 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
+import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +23,13 @@ public class LoggingEmailService implements EmailService {
         log.info("[email stub] Would send ticket {} to {}", ticket.getID(), ticket.getEmail());
         // Report success so delivery flows (and lastTicketSent stamping) work end-to-end in
         // deployments where email is intentionally disabled.
+        return true;
+    }
+
+    @Override
+    public boolean sendOrderNotification(Order order, OrderNotification notification) {
+        log.info("[email stub] Would send {} notification for order {} ({}) to {}",
+                notification, order.getId(), order.getReferenceCode(), order.getBuyerEmail());
         return true;
     }
 }

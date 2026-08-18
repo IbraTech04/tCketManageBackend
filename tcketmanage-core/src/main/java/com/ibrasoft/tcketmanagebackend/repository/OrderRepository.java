@@ -26,6 +26,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findByIdForUpdate(UUID id);
 
+    /**
+     * Loads an order with its line items initialized, for rendering outside a transaction (order
+     * notification emails). {@code items} is lazy, so the plain {@code findById} would return an
+     * entity that blows up on first access once detached.
+     */
+    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id = :id")
+    Optional<Order> findByIdWithItems(UUID id);
+
     Optional<Order> findByReferenceCode(String referenceCode);
 
     Optional<Order> findByProviderRef(String providerRef);

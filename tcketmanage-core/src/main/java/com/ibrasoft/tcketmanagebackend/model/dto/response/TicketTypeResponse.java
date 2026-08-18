@@ -23,6 +23,8 @@ public class TicketTypeResponse {
     private Instant createdAt;
     private Instant salesStartAt;
     private Instant salesEndAt;
+    private Integer capacity;
+    private Integer reservedCount;
     private List<ZoneEntitlementResponse> entitlements;
 
     public static TicketTypeResponse from(TicketType ticketType) {
@@ -39,6 +41,8 @@ public class TicketTypeResponse {
                 .createdAt(ticketType.getCreatedAt())
                 .salesStartAt(ticketType.getSalesStartAt())
                 .salesEndAt(ticketType.getSalesEndAt())
+                .capacity(ticketType.getCapacity())
+                .reservedCount(ticketType.getReservedCount())
                 .entitlements(entitlements)
                 .build();
     }

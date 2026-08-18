@@ -7,6 +7,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.OrderItemRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderItem;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
@@ -16,6 +17,7 @@ import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,7 @@ class OrderTransactions {
     private final TicketTypeRepository ticketTypeRepository;
     private final InventoryService inventoryService;
     private final PaymentConfirmationService confirmationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * The alphabet for generating human-friendly reference codes. Excludes easily
@@ -173,6 +176,7 @@ class OrderTransactions {
         inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
+        eventPublisher.publishEvent(new OrderNotificationEvent(orderId, OrderNotification.CANCELLED));
     }
 
     /**
@@ -196,6 +200,7 @@ class OrderTransactions {
         inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
         order.setStatus(OrderStatus.EXPIRED);
         orderRepository.save(order);
+        eventPublisher.publishEvent(new OrderNotificationEvent(orderId, OrderNotification.EXPIRED));
         return true;
     }
 

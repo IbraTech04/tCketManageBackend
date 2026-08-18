@@ -2,6 +2,8 @@ package com.ibrasoft.tcketmanagebackend.service.email;
 
 import com.ibrasoft.tcketmanage.autoconfigure.TcketManageProperties;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobStatus;
+import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.service.EmailService;
 import lombok.AllArgsConstructor;
@@ -16,12 +18,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Runs ticket email delivery on the {@code emailExecutor} pool, off the request/fulfillment threads.
- * Two entry points:
+ * Runs email delivery on the {@code emailExecutor} pool, off the request/fulfillment/sweep threads.
+ * Three entry points:
  *
  * <ul>
- *   <li>{@link #sendInBackground(UUID)} — fire-and-forget single send (order fulfillment, comp
- *       tickets), no progress tracking.</li>
+ *   <li>{@link #sendInBackground(UUID)} — fire-and-forget single ticket send (order fulfillment,
+ *       comp tickets), no progress tracking.</li>
+ *   <li>{@link #sendOrderNotificationInBackground(UUID, OrderNotification)} — fire-and-forget
+ *       order-level notice for the states that issue no tickets (expiry, cancellation, quarantine,
+ *       refund pending).</li>
  *   <li>{@link #runJob(EmailJobStatus, List)} — tracked batch that streams progress to
  *       {@code /topic/email-jobs/{jobId}} and updates the {@link EmailJobStatus} as it goes.</li>
  * </ul>
@@ -37,6 +42,7 @@ public class EmailDispatchService {
     private static final Logger log = LoggerFactory.getLogger(EmailDispatchService.class);
 
     private final TicketEmailSender ticketEmailSender;
+    private final OrderEmailSender orderEmailSender;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
     private final TcketManageProperties properties;
@@ -45,6 +51,21 @@ public class EmailDispatchService {
     @Async("emailExecutor")
     public void sendInBackground(UUID ticketId) {
         deliver(ticketId);
+    }
+
+    /**
+     * Fire-and-forget delivery of an order-level notice (expiry, cancellation, quarantine, refund
+     * pending). Nothing is tracked or retried: the order has already reached its new state, and a
+     * failed courtesy email must not be able to disturb that.
+     */
+    @Async("emailExecutor")
+    public void sendOrderNotificationInBackground(UUID orderId, OrderNotification notification) {
+        Optional<Order> loaded = orderEmailSender.load(orderId);
+        if (loaded.isEmpty()) {
+            log.warn("Skipping {} notification for order {}: no longer exists", notification, orderId);
+            return;
+        }
+        emailService.sendOrderNotification(loaded.get(), notification);
     }
 
     /** Runs a tracked batch: STARTED snapshot, a snapshot per ticket, then a terminal COMPLETED. */

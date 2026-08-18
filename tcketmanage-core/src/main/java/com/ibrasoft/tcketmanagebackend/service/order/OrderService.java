@@ -4,6 +4,7 @@ import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentContext;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
@@ -12,6 +13,7 @@ import com.ibrasoft.tcketmanagebackend.payment.PaymentProviderRegistry;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ public class OrderService {
     private final OrderTransactions orderTransactions;
     private final OrderOwnerResolver ownerResolver;
     private final OrderProperties orderProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Creates an order. Deliberately NOT {@code @Transactional}: the inventory hold is committed in
@@ -104,7 +107,9 @@ public class OrderService {
         }
         releaseInventory(order);
         order.setStatus(OrderStatus.CANCELLED);
-        return orderRepository.save(order);
+        Order cancelled = orderRepository.save(order);
+        eventPublisher.publishEvent(new OrderNotificationEvent(id, OrderNotification.CANCELLED));
+        return cancelled;
     }
 
     /** Releases all seats held by an order back to inventory. Runs within the caller's transaction. */

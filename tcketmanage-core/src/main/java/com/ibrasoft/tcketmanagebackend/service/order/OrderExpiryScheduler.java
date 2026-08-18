@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,7 +42,8 @@ public class OrderExpiryScheduler implements DisposableBean {
     private final ScheduledExecutorService executor;
 
     public OrderExpiryScheduler(OrderExpiryService expiryService, PaymentProperties properties) {
-        long intervalMs = properties.getSweepIntervalMs();
+        Duration interval = properties.getSweepInterval();
+        long intervalMs = interval.toMillis();
         this.executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "tcketmanage-order-expiry");
             thread.setDaemon(true);
@@ -49,7 +51,7 @@ public class OrderExpiryScheduler implements DisposableBean {
         });
         this.executor.scheduleWithFixedDelay(
                 () -> runSweep(expiryService), intervalMs, intervalMs, TimeUnit.MILLISECONDS);
-        log.info("tCketManage order-expiry sweep scheduled every {} ms", intervalMs);
+        log.info("tCketManage order-expiry sweep scheduled every {}", interval);
     }
 
     private void runSweep(OrderExpiryService expiryService) {

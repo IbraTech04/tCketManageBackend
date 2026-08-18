@@ -3,11 +3,14 @@ package com.ibrasoft.tcketmanagebackend.payment;
 import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
+import com.ibrasoft.tcketmanagebackend.service.order.OrderNotificationEvent;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,7 @@ public class PaymentConfirmationService {
     private final OrderRepository orderRepository;
     private final FulfillmentService fulfillmentService;
     private final InventoryService inventoryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Order confirmPayment(UUID orderId, String providerRef) {
@@ -50,7 +54,10 @@ public class PaymentConfirmationService {
                         order.setProviderRef(providerRef);
                     }
                     order.setStatus(OrderStatus.REFUND_PENDING);
-                    return orderRepository.save(order);
+                    Order queued = orderRepository.save(order);
+                    eventPublisher.publishEvent(
+                            new OrderNotificationEvent(orderId, OrderNotification.REFUND_PENDING));
+                    return queued;
                 }
                 // seats re-acquired → fall through to fulfill below
             }
@@ -83,7 +90,12 @@ public class PaymentConfirmationService {
             return order;
         }
         order.setStatus(OrderStatus.QUARANTINED);
-        return orderRepository.save(order);
+        Order quarantined = orderRepository.save(order);
+        // Guarded by the AWAITING_PAYMENT check above, so a duplicate/redelivered e-Transfer email
+        // quarantines once and notifies once.
+        eventPublisher.publishEvent(
+                new OrderNotificationEvent(orderId, OrderNotification.QUARANTINED));
+        return quarantined;
     }
 
     /** Re-acquires the seats an expired/cancelled order had held. {@code false} if any is sold out. */

@@ -45,7 +45,7 @@ public class MockPaymentProvider implements PaymentProvider {
 
     @Override
     public Duration holdDuration() {
-        return Duration.ofMinutes(properties.getMock().getHoldMinutes());
+        return properties.getMock().getHold();
     }
 
     @Override
