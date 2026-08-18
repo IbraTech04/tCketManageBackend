@@ -93,23 +93,34 @@ tcketmanage.cors.allowed-origins=*
 # Active provider when an order doesn't specify one: mock | interac | stripe.
 # Dev default is the mock provider so you can place orders without real money.
 tcketmanage.payments.default-provider=mock
-# Interval (ms) for the expired-order sweep.
-tcketmanage.payments.sweep-interval-ms=60000
+#
+# TIMES ARE DURATIONS. Every time-valued payment property takes a unit suffix —
+# 30s, 90m, 48h, 2d — so switching a hold from hours to minutes is a value edit,
+# not a property rename. A bare number is read as milliseconds.
+#
+# Cadence of the expired-order sweep. Note this is the sweep, not the deadline: an
+# order expires somewhere in [hold, hold + sweep-interval]. Keep it comfortably
+# under the shortest provider hold below, and lower it to expire holds sooner.
+tcketmanage.payments.sweep-interval=60s
 
 # --- Mock provider (dev) ---
 tcketmanage.payments.mock.enabled=true
 # true = orders auto-complete immediately; false = returns instructions and waits.
 tcketmanage.payments.mock.auto-confirm=true
-tcketmanage.payments.mock.hold-minutes=30
+# How long an unpaid order holds its seats before the sweep releases them.
+tcketmanage.payments.mock.hold=30m
 
 # --- Stripe (stub only — not yet implemented) ---
 tcketmanage.payments.stripe.enabled=false
+tcketmanage.payments.stripe.hold=30m
 
 # --- Interac e-Transfer (manual reference-code flow) ---
 # Set enabled=true and payee-email to activate; switch default-provider=interac too.
 tcketmanage.payments.interac.enabled=false
 tcketmanage.payments.interac.payee-email=
-tcketmanage.payments.interac.hold-hours=48
+# Generous because e-Transfers settle slowly — the buyer may need to clear a bank
+# send limit first. Write it in whatever unit reads best: 48h, 2d, 2880m.
+tcketmanage.payments.interac.hold=48h
 
 # --- Interac inbound IMAP listener (auto-confirms received deposit emails) ---
 # Gated independently of payments.interac.enabled. Set host/credentials to activate.

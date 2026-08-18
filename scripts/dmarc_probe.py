@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-DMARC property probe — derive the values for payments.interac.imap.dmarc.* by
+DMARC property probe — derive the values for tcketmanage.payments.interac.imap.dmarc.* by
 reading real mail your receiving server has already stamped.
 
 Why this exists
 ---------------
-When DMARC enforcement is enabled (payments.interac.imap.dmarc.enabled=true), the
+When DMARC enforcement is enabled (tcketmanage.payments.interac.imap.dmarc.enabled=true), the
 app does NOT re-validate SPF/DKIM. It trusts the Authentication-Results header your
 own receiving mail server added, and to find that header it needs to know the
 server's authserv-id — the first token of the header it writes (e.g.
@@ -155,7 +155,7 @@ def fetch_candidates(args, senders: list[str]) -> list[bytes]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Derive payments.interac.imap.dmarc.* from real mailbox messages.")
+        description="Derive tcketmanage.payments.interac.imap.dmarc.* from real mailbox messages.")
     ap.add_argument("--properties", type=Path,
                     help="application.properties to read IMAP settings from")
     ap.add_argument("--host")
@@ -175,15 +175,15 @@ def main() -> int:
     def pick(cli, key, default=None):
         return cli if cli is not None else props.get(key, default)
 
-    args.host = pick(args.host, "payments.interac.imap.host")
-    args.port = int(pick(args.port, "payments.interac.imap.port", 993))
-    args.username = pick(args.username, "payments.interac.imap.username")
-    args.password = args.password or props.get("payments.interac.imap.password")
-    args.folder = pick(args.folder, "payments.interac.imap.folder", "INBOX")
+    args.host = pick(args.host, "tcketmanage.payments.interac.imap.host")
+    args.port = int(pick(args.port, "tcketmanage.payments.interac.imap.port", 993))
+    args.username = pick(args.username, "tcketmanage.payments.interac.imap.username")
+    args.password = args.password or props.get("tcketmanage.payments.interac.imap.password")
+    args.folder = pick(args.folder, "tcketmanage.payments.interac.imap.folder", "INBOX")
 
     senders = args.senders
     if not senders:
-        raw = props.get("payments.interac.imap.expected-senders",
+        raw = props.get("tcketmanage.payments.interac.imap.expected-senders",
                         "notify@payments.interac.ca")
         senders = [s.strip() for s in raw.split(",") if s.strip()]
 
@@ -215,7 +215,7 @@ def main() -> int:
     if not verdicts:
         print("No Authentication-Results headers found. Your provider may not stamp them,")
         print("or they're under a different header name. DMARC enforcement can't be used")
-        print("here without them — leave payments.interac.imap.dmarc.enabled=false.")
+        print("here without them — leave tcketmanage.payments.interac.imap.dmarc.enabled=false.")
         return 1
 
     # Only headers that actually carry a dmarc method are useful to us.
@@ -260,17 +260,17 @@ def main() -> int:
         print("   real payments. Investigate why DMARC isn't passing before turning it on.")
 
     print("\n=== Paste into application.properties ===")
-    print("payments.interac.imap.dmarc.enabled=true")
-    print(f"payments.interac.imap.dmarc.authserv-id={recommended_authserv or ''}")
+    print("tcketmanage.payments.interac.imap.dmarc.enabled=true")
+    print(f"tcketmanage.payments.interac.imap.dmarc.authserv-id={recommended_authserv or ''}")
     if recommended_domain and not any(
         s.lower().endswith("@" + recommended_domain) for s in senders
     ):
         # header.from differs from the trusted sender's domain — be explicit.
-        print(f"payments.interac.imap.dmarc.aligned-domain={recommended_domain}")
+        print(f"tcketmanage.payments.interac.imap.dmarc.aligned-domain={recommended_domain}")
     else:
         print("# aligned-domain left blank: header.from matches the trusted sender's domain")
         print("# (the app defaults aligned-domain to the From domain when blank).")
-        print("payments.interac.imap.dmarc.aligned-domain=")
+        print("tcketmanage.payments.interac.imap.dmarc.aligned-domain=")
 
     return 0
 
