@@ -58,6 +58,14 @@ public class OrderService {
         // Phase 1 (committed): reserve seats + persist the pending order, then release the row lock.
         Order order = orderTransactions.reserveAndPersist(request, provider, ownerRef);
 
+        // If it's free, no need to go thru the rest of the flow
+        if (isFree(order)) {
+            PaymentInitiation initiation =
+                    new PaymentInitiation.Completed("free-" + order.getReferenceCode());
+            return new OrderCreationResult(
+                    orderTransactions.finalizeInitiation(order.getId(), initiation), initiation);
+        }
+
         // Phase 2 (no transaction, no lock held): talk to the payment provider.
         PaymentContext context = new PaymentContext(
                 order.getId(), order.getReferenceCode(), order.getAmountTotal(), order.getCurrency(),
@@ -74,6 +82,10 @@ public class OrderService {
         // Phase 3 (committed): record the provider ref and confirm if it settled synchronously.
         order = orderTransactions.finalizeInitiation(order.getId(), initiation);
         return new OrderCreationResult(order, initiation);
+    }
+
+    private boolean isFree(Order order) {
+        return order.getAmountTotal() != null && order.getAmountTotal().signum() == 0;
     }
 
     @Transactional(readOnly = true)

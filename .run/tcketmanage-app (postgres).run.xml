@@ -1,0 +1,34 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tcketmanage-app (postgres)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="tcketmanage-app" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.ibrasoft.tcketmanage.app.TcketManageApplication" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tcketmanage-app" />
+    <option name="ACTIVE_PROFILES" value="prod" />
+    <!--
+      Runs against Postgres via the prod profile, whose datasource settings default to
+      localhost:5432/tcketmanage with user/password tcket/tcket. Bring one up with:
+
+        docker run --rm -p 5432:5432 -e POSTGRES_DB=tcketmanage \
+          -e POSTGRES_USER=tcket -e POSTGRES_PASSWORD=tcket postgres:16
+
+      This is the configuration that exercises core's real migrations. SQLite runs use the
+      translated db/tcketmanage/sqlite twin, so a Postgres-only DDL mistake is invisible there.
+
+      Payments and IMAP are left off: the point is to exercise the schema, not to move money.
+      Override DB_URL / DB_USERNAME / DB_PASSWORD in Environment variables to point elsewhere.
+    -->
+    <option name="PROGRAM_PARAMETERS" value="--tcketmanage.payments.default-provider=mock --tcketmanage.payments.mock.enabled=true --tcketmanage.payments.interac.enabled=false --tcketmanage.payments.interac.imap.enabled=false --tcketmanage.email.enabled=false" />
+    <!--
+      validate, not the prod profile's default of update. update would quietly patch any
+      disagreement between core's Postgres DDL and its entities, which is precisely the
+      disagreement this configuration exists to catch. Startup failing here means
+      db/tcketmanage/postgresql/V1 has drifted from the model.
+    -->
+    <envs>
+      <env name="DDL_AUTO" value="validate" />
+    </envs>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

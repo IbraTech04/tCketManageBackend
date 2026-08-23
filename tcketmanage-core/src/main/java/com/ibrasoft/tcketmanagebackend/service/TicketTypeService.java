@@ -11,6 +11,7 @@ import com.ibrasoft.tcketmanagebackend.model.ticket.ZoneEntitlement;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
+import jakarta.persistence.EntityManager;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +32,7 @@ public class TicketTypeService {
     private final TicketTypeRepository ticketTypeRepository;
     private final EventRepository eventRepository;
     private final ZoneRepository zoneRepository;
+    private final EntityManager entityManager;
 
     public TicketType createTicketType(UUID eventId, CreateTicketTypeRequest request) {
         Event event = eventRepository.findById(eventId)
@@ -82,7 +84,11 @@ public class TicketTypeService {
         existing.setSalesEndAt(request.getSalesEndAt());
 
         // Replace the entitlement set with the requested one (orphanRemoval clears the old rows).
+        // Flush the deletes before adding new rows: Hibernate's flush order is inserts-then-deletes,
+        // so re-entitling a zone the ticket type already had would otherwise INSERT a duplicate
+        // (ticket_type_id, zone_id) row before the old one is deleted, violating the unique constraint.
         existing.getEntitlements().clear();
+        entityManager.flush();
         applyEntitlements(existing, existing.getEvent().getId(), request.getEntitlements());
 
         return ticketTypeRepository.save(existing);

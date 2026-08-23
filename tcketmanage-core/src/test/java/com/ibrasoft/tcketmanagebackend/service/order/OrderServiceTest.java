@@ -122,6 +122,42 @@ class OrderServiceTest {
     }
 
     @Test
+    void createOrder_freeOrder_settlesWithoutContactingProvider() {
+        Order pending = pendingOrder();
+        // Scale matters: summing 0.00-priced tickets gives "0.00", which is not equal() to ZERO.
+        pending.setAmountTotal(new BigDecimal("0.00"));
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), any())).thenReturn(pending);
+        Order paid = pendingOrder();
+        paid.setStatus(OrderStatus.PAID);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), any())).thenReturn(paid);
+
+        OrderCreationResult result = orderService.createOrder(request());
+
+        assertEquals(OrderStatus.PAID, result.order().getStatus());
+        assertInstanceOf(PaymentInitiation.Completed.class, result.initiation());
+        assertEquals("free-ORD-TEST", result.initiation().providerRef());
+        verify(provider, never()).initiate(any());
+        verify(orderTransactions, never()).releaseHold(any());
+    }
+
+    @Test
+    void createOrder_unpricedOrder_stillGoesThroughProvider() {
+        Order pending = pendingOrder();
+        // A missing total means the price is unknown, not free — it must not auto-approve.
+        pending.setAmountTotal(null);
+        when(providerRegistry.resolve(null)).thenReturn(provider);
+        when(orderTransactions.reserveAndPersist(any(), eq(provider), any())).thenReturn(pending);
+        PaymentInitiation initiation = new PaymentInitiation.Instructions("pref", "pay please", Map.of());
+        when(provider.initiate(any())).thenReturn(initiation);
+        when(orderTransactions.finalizeInitiation(eq(pending.getId()), eq(initiation))).thenReturn(pending);
+
+        orderService.createOrder(request());
+
+        verify(provider, times(1)).initiate(any());
+    }
+
+    @Test
     void createOrder_providerInitiateFails_releasesHoldAndRethrows() {
         Order pending = pendingOrder();
         when(providerRegistry.resolve(null)).thenReturn(provider);

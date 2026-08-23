@@ -1,0 +1,23 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="tcketmanage-app (offline)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="tcketmanage-app" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.ibrasoft.tcketmanage.app.TcketManageApplication" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tcketmanage-app" />
+    <!--
+      Everyday development loop: nothing here reaches the network.
+
+      The stock configuration settles real money over Interac and opens an IMAP IDLE connection to
+      imap.purelymail.com at startup to watch for e-Transfer notifications, which is not what you
+      want running on a laptop against test data.
+
+      - mock provider, auto-confirming, so orders settle instantly and tickets are issued
+      - interac provider and its IMAP listener off
+      - email off, so LoggingEmailService logs the message instead of sending it over SMTP
+      - separate database, so experiments here never touch the other run configurations'
+    -->
+    <option name="PROGRAM_PARAMETERS" value="--spring.datasource.url=jdbc:sqlite:tcketmanage-offline.db --tcketmanage.payments.default-provider=mock --tcketmanage.payments.mock.enabled=true --tcketmanage.payments.mock.auto-confirm=true --tcketmanage.payments.interac.enabled=false --tcketmanage.payments.interac.imap.enabled=false --tcketmanage.email.enabled=false" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
