@@ -19,6 +19,7 @@ public class OrderItemResponse {
     private String attendeeLastName;
     private String attendeeEmail;
     private BigDecimal unitPrice;
+    private UUID eventId;
 
     public static OrderItemResponse from(OrderItem item) {
         return OrderItemResponse.builder()
@@ -29,6 +30,7 @@ public class OrderItemResponse {
                 .attendeeLastName(item.getAttendeeLastName())
                 .attendeeEmail(item.getAttendeeEmail())
                 .unitPrice(item.getUnitPrice())
+                .eventId(item.getTicketType().getEvent().getId())
                 .build();
     }
 }
