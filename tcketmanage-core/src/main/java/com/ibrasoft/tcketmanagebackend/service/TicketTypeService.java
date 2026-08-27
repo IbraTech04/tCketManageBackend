@@ -1,5 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.service;
 
+import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateTicketTypeRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketTypeRequest;
@@ -45,6 +46,12 @@ public class TicketTypeService {
                 .name(request.getName())
                 .price(request.getPrice())
                 .isActive(request.getIsActive() == null || request.getIsActive())
+                // SECURITY: without this the capacity column was write-only from EventService's
+                // wizard path, so every type created through POST /events/{id}/ticket-types was
+                // persisted unlimited and InventoryService's `capacity IS NULL OR ...` reserve
+                // guard could never reject anything for it. A brand-new row always has
+                // reservedCount = 0, so no capacity value can violate the invariant here.
+                .capacity(request.getCapacity())
                 .salesStartAt(request.getSalesStartAt())
                 .salesEndAt(request.getSalesEndAt())
                 .entitlements(new ArrayList<>())
@@ -76,10 +83,21 @@ public class TicketTypeService {
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found with id: " + id));
 
         validateWindow(request.getSalesStartAt(), request.getSalesEndAt());
+        if (request.isCapacityPresent()) {
+            validateCapacityReduction(existing, request.getCapacity());
+        }
 
         existing.setName(request.getName());
         existing.setPrice(request.getPrice());
         existing.setIsActive(request.getIsActive() == null || request.getIsActive());
+        // SECURITY: only touch capacity when the client actually sent the field. An omitted
+        // capacity must leave the stored cap alone, because a body written against the
+        // pre-capacity version of this DTO omits it — replacing it with null there would silently
+        // uncap a live ticket type and make InventoryService's reserve guard vacuous for it. See
+        // UpdateTicketTypeRequest#capacity for the full reasoning and the rejected alternative.
+        if (request.isCapacityPresent()) {
+            existing.setCapacity(request.getCapacity());
+        }
         existing.setSalesStartAt(request.getSalesStartAt());
         existing.setSalesEndAt(request.getSalesEndAt());
 
@@ -110,6 +128,47 @@ public class TicketTypeService {
         if (salesStartAt != null && salesEndAt != null && !salesStartAt.isBefore(salesEndAt)) {
             throw new IllegalArgumentException(
                     "salesStartAt (" + salesStartAt + ") must be before salesEndAt (" + salesEndAt + ")");
+        }
+    }
+
+    /**
+     * Rejects an edit that would leave a ticket type holding more seats than it is allowed to sell.
+     *
+     * <p>SECURITY: {@code reservedCount} counts seats already consumed by live orders (pending
+     * holds plus paid). Setting {@code capacity} below it would put the row in a state the oversell
+     * invariant forbids — {@code sum(reserved seats) <= capacity} — and would make
+     * {@code InventoryService}'s release path decrement toward a number that was never legitimately
+     * reachable. The seats cannot be un-sold by an admin edit, so the edit is what gives.
+     *
+     * <p>The read of {@code reservedCount} is trustworthy because the caller loaded the row through
+     * {@code findByIdForUpdate}: the check and the subsequent flush are serialized against every
+     * concurrent {@code reserve} on the same row, and because that locked load is the first read of
+     * the row in this transaction it cannot return a stale persistence-context instance (the
+     * pitfall documented in docs/LOCKING.MD). A reservation racing this edit therefore either
+     * commits before the lock is taken — and is seen here — or waits behind it and is then
+     * evaluated against the new capacity.
+     *
+     * <p>Rejected alternatives: (a) clamping capacity up to {@code reservedCount} silently, which
+     * hands the operator a limit they did not ask for and hides a real oversell from them;
+     * (b) letting it through and relying on the V2 CHECK constraint, which surfaces as an opaque
+     * {@code DataIntegrityViolationException}/500 instead of a 409 the caller can act on — and on
+     * SQLite, where that constraint deliberately does not exist, would not be caught at all.
+     *
+     * @throws ConflictException if {@code requested} is a lower cap than the seats already held
+     */
+    private void validateCapacityReduction(TicketType existing, Integer requested) {
+        // null means unlimited: raising the cap to "no cap" can never break the invariant.
+        if (requested == null) {
+            return;
+        }
+        // The column is NOT NULL, so this is only ever null for an instance that was never
+        // persisted; treat that as zero seats held rather than throwing an NPE.
+        int reserved = existing.getReservedCount() == null ? 0 : existing.getReservedCount();
+        if (requested < reserved) {
+            throw new ConflictException("Cannot reduce capacity of ticket type " + existing.getId()
+                    + " to " + requested + ": " + reserved
+                    + " seat(s) are already reserved or sold. Cancel or refund the outstanding"
+                    + " orders first, or set the capacity to at least " + reserved + ".");
         }
     }
 
