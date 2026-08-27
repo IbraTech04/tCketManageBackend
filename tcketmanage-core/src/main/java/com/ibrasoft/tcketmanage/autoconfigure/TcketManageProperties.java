@@ -55,6 +55,50 @@ public class TcketManageProperties {
          */
         private String topicPrefix = "/topic";
 
+        /**
+         * How hard
+         * {@link com.ibrasoft.tcketmanagebackend.config.EmailJobSubscriptionInterceptor} presses on
+         * the identity behind a {@code SUBSCRIBE} to the email-job feed.
+         *
+         * <p>Only the principal half of that guard is configurable. The destination-shape half —
+         * a subscription may name one concrete job id and may not fan out across the feed — is
+         * unconditional, because it needs no principal and is what stops an unauthenticated client
+         * from vacuuming up every job's snapshots.
+         */
+        private SubscriptionAuthorization subscriptionAuthorization = SubscriptionAuthorization.AUTO;
+
+        /**
+         * Modes for {@link Websocket#getSubscriptionAuthorization()}.
+         *
+         * <p>{@link #AUTO} is the default because core cannot assume the application has wired
+         * authentication into its websocket handshake at all — the standalone {@code tcketmanage-app}
+         * has not, and its progress UI would stop working under an unconditional gate. See
+         * {@link com.ibrasoft.tcketmanagebackend.config.EmailJobSubscriptionInterceptor} for the full
+         * reasoning and the alternatives that were rejected.
+         */
+        public enum SubscriptionAuthorization {
+
+            /**
+             * Apply {@code @tcketmanageAuthz.canManageEvents()} when the STOMP session carries a
+             * principal; skip it when the session carries none.
+             */
+            AUTO,
+
+            /**
+             * Always apply the check, and refuse a session that carries no principal at all. The
+             * setting for a host that permits an unauthenticated handshake but still wants the feed
+             * closed.
+             */
+            REQUIRED,
+
+            /**
+             * Skip the principal check entirely. An escape hatch for a deployment whose
+             * {@link com.ibrasoft.tcketmanagebackend.security.TcketManageAuthorizer} cannot be
+             * evaluated off a request thread; the destination-shape check still applies.
+             */
+            DISABLED
+        }
+
         /** {@link #topicPrefix} without a trailing slash, so callers can append their own. */
         public String normalizedTopicPrefix() {
             String prefix = topicPrefix == null ? "" : topicPrefix.trim();
@@ -81,7 +125,22 @@ public class TcketManageProperties {
          * its filter chain, which runs first and will reject a cross-origin preflight before MVC
          * ever sees it; such a host must add core's base path to its own
          * {@code CorsConfigurationSource} instead.
+         *
+         * <p>SECURITY: empty by default, which permits same-origin traffic only. This used to
+         * default to {@code ["*"]} — every website on the internet could call core's endpoints and
+         * open core's websocket, in a library whose whole premise is that the host supplies the
+         * authentication. ({@code allowCredentials} is never set, so this was never the
+         * {@code "*"}-plus-credentials variant of the bug; the exposure was the reach, not the
+         * cookie.) A permissive default is the wrong shape for the one setting a deployment cannot
+         * discover it needed: getting it wrong the other way costs a browser console error on first
+         * use, not a silent leak.
+         *
+         * <p>This is a breaking change for any deployment that relied on the wildcard. Such a
+         * deployment restores it by naming its front-end origins explicitly —
+         * {@code tcketmanage.cors.allowed-origins=https://app.example.org} — which is what it should
+         * have been carrying anyway. The standalone app's {@code application.properties.example}
+         * still sets a value, so a deployment that started from the example is unaffected.
          */
-        private List<String> allowedOrigins = List.of("*");
+        private List<String> allowedOrigins = List.of();
     }
 }
