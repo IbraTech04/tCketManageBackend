@@ -1,13 +1,22 @@
 package com.ibrasoft.tcketmanagebackend.model.dto.request;
 
+import jakarta.validation.constraints.NotNull;
+
 import java.util.UUID;
 
 /**
  * Request DTO for validating a ticket for a specific zone
  * Used to check if a ticket is valid for entry to a zone without performing the scan
+ *
+ * <p>Both ids are mandatory, for the same reason as {@link ScanRequest}: the service resolves each
+ * one and a null would surface as a spurious 404 (or worse, an unhandled NPE) rather than a 400
+ * telling the caller which field it left out.
  */
 public class ValidateRequest {
+    @NotNull
     private UUID ticketId;
+
+    @NotNull
     private UUID zoneId;
 
     /**
