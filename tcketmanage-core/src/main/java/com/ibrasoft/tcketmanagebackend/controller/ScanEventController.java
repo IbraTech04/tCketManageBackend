@@ -33,7 +33,7 @@ public class ScanEventController {
     private final ScanEventService scanEventService;
 
     @PostMapping("/scan")
-    public ResponseEntity<ScanResult> scanTicket(@RequestBody ScanRequest request) {
+    public ResponseEntity<ScanResult> scanTicket(@Valid @RequestBody ScanRequest request) {
         ScanResult result = scanEventService.scanTicket(request.getTicketId(), request.getZoneId());
         return result.isSuccess() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
@@ -45,7 +45,7 @@ public class ScanEventController {
     }
 
     @PostMapping("/validate")
-    public ValidationResult validateTicketForZone(@RequestBody ValidateRequest request) {
+    public ValidationResult validateTicketForZone(@Valid @RequestBody ValidateRequest request) {
         return scanEventService.validateTicketForZone(request.getTicketId(), request.getZoneId());
     }
 

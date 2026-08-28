@@ -43,11 +43,33 @@
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- LOAD-BEARING — do NOT delete this as a "redundant pin that Boot's BOM manages".
+             It is neither redundant nor BOM-managed, and removing it breaks ticket rendering at
+             runtime, not at compile time.
+
+             Why it isn't transitive: spring-boot-starter-thymeleaf pulls thymeleaf-spring6, and
+             thymeleaf-spring6's POM explicitly <exclusion>s ognl from thymeleaf-core, because in
+             Spring mode Thymeleaf evaluates ${...} with SpEL and genuinely doesn't need it. But
+             SvgTemplateConfig deliberately builds a plain org.thymeleaf.TemplateEngine (not a
+             SpringTemplateEngine) for the XML/SVG ticket templates — and the plain engine's
+             expression evaluator IS the OGNL-backed one. So core needs a jar its own starter
+             deliberately excludes, which only an explicit declaration can supply.
+
+             Why the BOM can't own it: spring-boot-dependencies has no entry for ognl:ognl, so with
+             this block gone nothing puts it on the classpath at all. Verified: deleting it makes
+             TicketGenerationServiceTest and TicketQrIntegrationTest fail with
+             NoClassDefFoundError: ognl/PropertyAccessor on the first ${...} in the SVG template.
+
+             Why 3.3.4: that is the exact version thymeleaf-parent 3.1.5.RELEASE declares as
+             <ognl.version>, i.e. the version this Thymeleaf is built and tested against. When
+             upgrading Thymeleaf (normally via a Spring Boot bump), re-read that property and match
+             it here rather than picking the newest OGNL release. -->
         <dependency>
             <groupId>ognl</groupId>
             <artifactId>ognl</artifactId>
             <version>3.3.4</version>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

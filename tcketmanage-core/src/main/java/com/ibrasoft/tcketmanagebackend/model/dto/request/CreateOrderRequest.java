@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateOrderRequest {
+    public static final int MAX_ITEMS = 100;
 
     @Email
     @NotBlank
@@ -33,5 +35,6 @@ public class CreateOrderRequest {
 
     @Valid
     @NotEmpty
+    @Size(max = MAX_ITEMS, message = "An order may contain at most " + MAX_ITEMS + " seats")
     private List<OrderItemRequest> items = new ArrayList<>();
 }
