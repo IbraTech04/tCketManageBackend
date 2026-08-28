@@ -13,15 +13,14 @@ import java.util.UUID;
 /**
  * Request DTO for updating an existing ticket.
  */
+@Setter
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
 public class UpdateTicketRequest {
-
     /** Requires at least one non-whitespace character; {@code null} means "leave unchanged". */
     private static final String NOT_BLANK = ".*\\S.*";
 
-    // Getters and setters
     @Size(max = 50)
     @Pattern(regexp = NOT_BLANK, message = "firstName must not be blank")
     private String firstName;
@@ -35,11 +34,6 @@ public class UpdateTicketRequest {
     @Pattern(regexp = NOT_BLANK, message = "email must not be blank")
     private String email;
 
-    /**
-     * Ticket type to move this ticket to. Must belong to the ticket's own event; the transfer moves
-     * the ticket's seat between the two types' capacities and is rejected if the target is sold out
-     * (see {@code TicketService.updateTicket}).
-     */
     @Setter
     private UUID ticketTypeId;
 

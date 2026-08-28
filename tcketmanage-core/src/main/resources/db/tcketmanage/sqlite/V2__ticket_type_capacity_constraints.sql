@@ -1,0 +1,29 @@
+-- SQLite twin of db/tcketmanage/postgresql/V2__ticket_type_capacity_constraints.sql.
+--
+-- INTENTIONALLY A NO-OP. The Postgres V2 adds two backstop CHECK constraints to
+-- "tcket:ticket_types" (reserved_count >= 0, and capacity IS NULL OR reserved_count <= capacity).
+-- SQLite cannot do that: it has no `ALTER TABLE ... ADD CONSTRAINT`, and CHECK constraints can only
+-- be attached at CREATE TABLE time. Adding one to a populated table means SQLite's documented
+-- 12-step rebuild — create a shadow table carrying the constraint, copy every row, drop the
+-- original, rename the shadow, and recreate the indexes.
+--
+-- Rejected alternative: doing that rebuild here for dialect symmetry. Four tables hold foreign keys
+-- into "tcket:ticket_types" ("tcket:zone_entitlements", "tcket:order_items", "tcket:tickets", and
+-- transitively anything a host application declares). SQLite resolves FK targets by table *name*,
+-- so a DROP/RENAME either silently repoints those references at the shadow table mid-rebuild or, if
+-- legacy_alter_table is off, rewrites the referencing DDL in ways that depend on the SQLite build
+-- and the PRAGMA state Flyway happens to be running under. That is a real chance of corrupting a
+-- developer's schema, in exchange for a constraint on a database that is dev-only by policy:
+-- application.properties.example states plainly that "the oversell-prevention row locks are no-ops
+-- on SQLite. Use the prod profile (PostgreSQL) for any real deployment or load test." The
+-- constraint would be guarding an invariant that this database already cannot enforce concurrently.
+--
+-- The version number is still claimed here so the two dialect directories stay aligned. Flyway
+-- keeps its history per-database, so a gap on one side and not the other would leave a SQLite
+-- deployment recording V1 as its latest applied version while Postgres records V2, and any future
+-- V3 would be describing a schema state that never existed on SQLite. Keeping V2 present-but-empty
+-- means "version 2 exists and means nothing here", which is what future readers need to know.
+--
+-- The statement below exists only so the migration has something to execute rather than relying on
+-- Flyway's handling of a statement-free script; it changes nothing.
+SELECT 1;
