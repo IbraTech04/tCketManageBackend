@@ -1,66 +1,63 @@
 package com.ibrasoft.tcketmanagebackend.model.dto.request;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.util.UUID;
 
 /**
- * Request DTO for updating an existing ticket
- * Contains fields that can be modified on an existing ticket
+ * Request DTO for updating an existing ticket.
  */
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
 public class UpdateTicketRequest {
-    private String firstName;
-    private String lastName;
-    private String email;
-    private UUID ticketTypeId;
 
-    /**
-     * Default constructor for Jackson deserialization
-     */
-    public UpdateTicketRequest() {}
-
-    /**
-     * Constructor with all fields
-     * @param firstName updated first name of the ticket holder
-     * @param lastName updated last name of the ticket holder
-     * @param email updated email address of the ticket holder
-     * @param ticketTypeId updated ticket type ID for this ticket
-     */
-    public UpdateTicketRequest(String firstName, String lastName, String email, UUID ticketTypeId) {
-        this.firstName = firstName;
-        this.lastName = lastName;
-        this.email = email;
-        this.ticketTypeId = ticketTypeId;
-    }
+    /** Requires at least one non-whitespace character; {@code null} means "leave unchanged". */
+    private static final String NOT_BLANK = ".*\\S.*";
 
     // Getters and setters
-    public String getFirstName() { 
-        return firstName; 
+    @Size(max = 50)
+    @Pattern(regexp = NOT_BLANK, message = "firstName must not be blank")
+    private String firstName;
+
+    @Size(max = 50)
+    @Pattern(regexp = NOT_BLANK, message = "lastName must not be blank")
+    private String lastName;
+
+    @Size(max = 255)
+    @Email
+    @Pattern(regexp = NOT_BLANK, message = "email must not be blank")
+    private String email;
+
+    /**
+     * Ticket type to move this ticket to. Must belong to the ticket's own event; the transfer moves
+     * the ticket's seat between the two types' capacities and is rejected if the target is sold out
+     * (see {@code TicketService.updateTicket}).
+     */
+    @Setter
+    private UUID ticketTypeId;
+
+
+    /* Not lombok for normalization purposes */
+    private static String normalize(String value) {
+        return value == null ? null : value.trim();
     }
-    
-    public void setFirstName(String firstName) { 
-        this.firstName = firstName; 
+
+    public void setFirstName(String firstName) {
+        this.firstName = normalize(firstName);
     }
-    
-    public String getLastName() { 
-        return lastName; 
+
+    public void setLastName(String lastName) {
+        this.lastName = normalize(lastName);
     }
-    
-    public void setLastName(String lastName) { 
-        this.lastName = lastName; 
-    }
-    
-    public String getEmail() { 
-        return email; 
-    }
-    
-    public void setEmail(String email) { 
-        this.email = email; 
-    }
-    
-    public UUID getTicketTypeId() { 
-        return ticketTypeId; 
-    }
-    
-    public void setTicketTypeId(UUID ticketTypeId) { 
-        this.ticketTypeId = ticketTypeId; 
+
+    public void setEmail(String email) {
+        this.email = normalize(email);
     }
 }
