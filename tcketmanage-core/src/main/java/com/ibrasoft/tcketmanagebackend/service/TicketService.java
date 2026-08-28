@@ -25,33 +25,6 @@ import java.util.UUID;
 
 /**
  * Admin-side lifecycle of individual tickets: comp issuance, holder edits, type changes, deletion.
- *
- * <p><b>Capacity accounting.</b> Every {@code ACTIVE} ticket row occupies exactly one seat of its
- * ticket type, whether it came from a paid order, a CSV import, or a comp issued here. So each of
- * these operations moves {@code reserved_count} in step with the row it writes: issue reserves,
- * delete releases, and a type change transfers. That mutation always goes through
- * {@link InventoryService}'s atomic conditional UPDATEs — never a "load the TicketType, check in
- * Java, save", which {@code docs/LOCKING.MD} rejects because a locking query resolving to an
- * already-managed instance returns the stale entity and silently degrades "check under lock" into
- * "check a pre-lock value".
- *
- * <p><b>Locking.</b> The atomic UPDATEs keep {@code reserved_count} internally consistent, but they
- * cannot by themselves stop two admins from deriving <em>two</em> capacity moves out of one seat.
- * Both would read the same ticket, both would see type T1, and both would release it — one seat
- * decremented twice, with a phantom reservation left on whichever type lost. So every mutation here
- * re-loads the ticket under its row lock ({@code findByIdForUpdate}) and reads {@code status} and
- * {@code ticketType} inside that lock, the same "re-load and re-check under the lock" shape the
- * order lifecycle uses. Ticket row first, then ticket-type rows.
- *
- * <p>One caveat on the global lock order ({@code docs/LOCKING.MD}: order row before ticket-type
- * rows). Writing the {@code tcket:tickets} row takes a {@code FOR KEY SHARE} on the order it
- * references via {@code fk_tickets_order}, so a type change or delete does touch a ticket-type row
- * and an order row in the forbidden order. It is unreachable today: every order path that releases
- * inventory ({@code cancelOrder}, {@code releaseHold}, {@code expireIfStillAwaiting}) bails on
- * anything but {@code AWAITING_PAYMENT}, and tickets exist only for {@code PAID} orders, so no
- * transaction holds an order-row lock and reaches for these same ticket-type rows. A future refund
- * path that releases a {@code PAID} order's seats after {@code findByIdForUpdate} would deadlock
- * against a concurrent ticket delete, and must re-derive this ordering rather than assume it.
  */
 @Service
 @AllArgsConstructor
@@ -107,14 +80,6 @@ public class TicketService {
      * Applies a <em>partial</em> update to a ticket: every field of the request is optional and a
      * {@code null} leaves the stored value untouched.
      *
-     * <p>SECURITY: null-guarding is not cosmetic. The previous version copied all three holder
-     * fields unconditionally, so a request carrying only {@code ticketTypeId} blanked the holder's
-     * name and email — and because {@code POST /tickets/{id}/resend} mails the signed QR to
-     * whatever address the ticket currently carries, an attacker-supplied {@code email} on an
-     * otherwise-empty body was a one-request redirect of a valid credential to an inbox of their
-     * choosing. Shape and non-blankness of the supplied values are enforced declaratively on
-     * {@link UpdateTicketRequest}.
-     *
      * @throws com.ibrasoft.tcketmanagebackend.exception.ConflictException if a requested type
      *         change targets a sold-out type (nothing is committed; the old seat stays held)
      */
@@ -126,6 +91,7 @@ public class TicketService {
 
         // Values arrive already trimmed: UpdateTicketRequest normalises on binding so its own
         // @Email / @Size constraints see the real value rather than one padded with whitespace.
+        // TODO: Update this with the same Patch system as Minbar
         if (request.getFirstName() != null) {
             existing.setFirstName(request.getFirstName());
         }
@@ -141,26 +107,6 @@ public class TicketService {
         return ticketRepository.save(existing);
     }
 
-    /**
-     * Deletes a ticket, returning its seat to inventory when it was holding one.
-     *
-     * <p>Only a live ticket holds a reservation, so only a live ticket releases one (see
-     * {@link #holdsSeat} for why that is "not {@code CANCELLED}" rather than "is {@code ACTIVE}").
-     * A {@code CANCELLED} ticket gave its seat back when it was cancelled; releasing
-     * again here would double-decrement {@code reserved_count} and let the event oversell by one.
-     * {@link InventoryService#release} clamps at zero and logs loudly rather than going negative,
-     * but leaning on that clamp would still lose a seat whenever the count had not yet reached
-     * zero. Rejected alternative: releasing unconditionally "to be safe" — for capacity, an
-     * unconditional release is the unsafe direction.
-     *
-     * <p>Note on order-issued tickets: the seat is reserved once, by the order, and the ticket is
-     * materialised against that same reservation — there is no second increment at fulfilment. So
-     * releasing here is the correct single release: no order path releases a {@code PAID} order's
-     * seats ({@code cancelOrder} / the expiry sweep / {@code releaseHold} all require
-     * {@code AWAITING_PAYMENT}), and a ticket only exists once its order is paid.
-     *
-     * @return {@code true} if a ticket was found and deleted, {@code false} if no such ticket
-     */
     public boolean deleteTicket(UUID id) {
         // Locked load, for the same reason as updateTicket: without it a concurrent type change
         // could commit between this read and the release, sending the seat back to the type the
