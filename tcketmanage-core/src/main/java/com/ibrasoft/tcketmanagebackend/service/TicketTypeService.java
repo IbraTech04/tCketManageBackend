@@ -46,11 +46,6 @@ public class TicketTypeService {
                 .name(request.getName())
                 .price(request.getPrice())
                 .isActive(request.getIsActive() == null || request.getIsActive())
-                // SECURITY: without this the capacity column was write-only from EventService's
-                // wizard path, so every type created through POST /events/{id}/ticket-types was
-                // persisted unlimited and InventoryService's `capacity IS NULL OR ...` reserve
-                // guard could never reject anything for it. A brand-new row always has
-                // reservedCount = 0, so no capacity value can violate the invariant here.
                 .capacity(request.getCapacity())
                 .salesStartAt(request.getSalesStartAt())
                 .salesEndAt(request.getSalesEndAt())
@@ -90,11 +85,6 @@ public class TicketTypeService {
         existing.setName(request.getName());
         existing.setPrice(request.getPrice());
         existing.setIsActive(request.getIsActive() == null || request.getIsActive());
-        // SECURITY: only touch capacity when the client actually sent the field. An omitted
-        // capacity must leave the stored cap alone, because a body written against the
-        // pre-capacity version of this DTO omits it — replacing it with null there would silently
-        // uncap a live ticket type and make InventoryService's reserve guard vacuous for it. See
-        // UpdateTicketTypeRequest#capacity for the full reasoning and the rejected alternative.
         if (request.isCapacityPresent()) {
             existing.setCapacity(request.getCapacity());
         }
@@ -133,12 +123,6 @@ public class TicketTypeService {
 
     /**
      * Rejects an edit that would leave a ticket type holding more seats than it is allowed to sell.
-     *
-     * <p>SECURITY: {@code reservedCount} counts seats already consumed by live orders (pending
-     * holds plus paid). Setting {@code capacity} below it would put the row in a state the oversell
-     * invariant forbids — {@code sum(reserved seats) <= capacity} — and would make
-     * {@code InventoryService}'s release path decrement toward a number that was never legitimately
-     * reachable. The seats cannot be un-sold by an admin edit, so the edit is what gives.
      *
      * <p>The read of {@code reservedCount} is trustworthy because the caller loaded the row through
      * {@code findByIdForUpdate}: the check and the subsequent flush are serialized against every
