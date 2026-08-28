@@ -80,6 +80,11 @@ public class PaymentConfirmationService {
      * row like {@link #confirmPayment} so a quarantine can't race a confirmation, and only transitions
      * from {@code AWAITING_PAYMENT}: an order that already settled, expired, cancelled, or was itself
      * already quarantined is left untouched, making a redelivered/duplicate email a no-op.
+     *
+     * <p>Crucially, this does <em>not</em> release the order's inventory hold: the seats stay reserved
+     * ("spot taken") until an operator resolves the review via {@link #approveQuarantine} or
+     * {@link #denyQuarantine}. A quarantined order is therefore also exempt from the expiry sweep,
+     * which only targets {@code AWAITING_PAYMENT}.
      */
     @Transactional
     public Order quarantineOrder(UUID orderId) {
@@ -91,11 +96,66 @@ public class PaymentConfirmationService {
         }
         order.setStatus(OrderStatus.QUARANTINED);
         Order quarantined = orderRepository.save(order);
-        // Guarded by the AWAITING_PAYMENT check above, so a duplicate/redelivered e-Transfer email
-        // quarantines once and notifies once.
+        // Both listeners are wanted and they serve different audiences: OrderNotificationEvent mails
+        // the buyer, OrderQuarantinedEvent alerts the operator who has to approve or deny. Guarded by
+        // the AWAITING_PAYMENT check above, so a duplicate/redelivered e-Transfer email quarantines
+        // once and fires each event once.
         eventPublisher.publishEvent(
                 new OrderNotificationEvent(orderId, OrderNotification.QUARANTINED));
+        eventPublisher.publishEvent(
+                new OrderQuarantinedEvent(quarantined.getId(), quarantined.getReferenceCode()));
         return quarantined;
+    }
+
+    /**
+     * Operator decision: the quarantined payment is legitimate. The seats were held through the
+     * quarantine (never released), so this simply fulfills and settles — no re-reservation needed.
+     * Row-locked and idempotent: an order already {@code PAID}/{@code REFUND_PENDING} is a no-op, and
+     * an order that is not {@code QUARANTINED} (e.g. denied in the meantime) is rejected.
+     */
+    @Transactional
+    public Order approveQuarantine(UUID orderId) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.REFUND_PENDING) {
+            return order;
+        }
+        if (order.getStatus() != OrderStatus.QUARANTINED) {
+            throw new ConflictException(
+                "Order " + orderId + " is not quarantined (status " + order.getStatus() + ")");
+        }
+        order.setStatus(OrderStatus.PAID);
+        order.setPaidAt(Instant.now());
+        fulfillmentService.fulfill(order);
+        return orderRepository.save(order);
+    }
+
+    /**
+     * Operator decision: the quarantined payment is not valid for this order. Releases the held seats
+     * back to inventory and, depending on whether money actually arrived, either cancels the order
+     * ({@code fundsReceived == false}) or queues it for an out-of-band refund
+     * ({@code fundsReceived == true}). Row-locked and idempotent: an order already settled into a
+     * denial outcome ({@code CANCELLED}/{@code REFUND_PENDING}) is a no-op; any other non-quarantined
+     * status is rejected.
+     *
+     * @param fundsReceived whether the (mismatched) payment was actually received and must be returned
+     */
+    @Transactional
+    public Order denyQuarantine(UUID orderId, boolean fundsReceived) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.REFUND_PENDING) {
+            return order;
+        }
+        if (order.getStatus() != OrderStatus.QUARANTINED) {
+            throw new ConflictException(
+                "Order " + orderId + " is not quarantined (status " + order.getStatus() + ")");
+        }
+        inventoryService.releaseAll(InventoryService.seatsByTicketType(order.getItems()));
+        order.setStatus(fundsReceived ? OrderStatus.REFUND_PENDING : OrderStatus.CANCELLED);
+        return orderRepository.save(order);
     }
 
     /** Re-acquires the seats an expired/cancelled order had held. {@code false} if any is sold out. */

@@ -20,6 +20,9 @@ public class TicketResponse {
     private UUID eventId;
     private TicketTypeResponse ticketType;
 
+    /** Lifecycle state (ACTIVE / CANCELLED / REVOKED); only ACTIVE tickets scan through. */
+    private String status;
+
     /** When the ticket was last successfully emailed, or {@code null} if it has never been sent. */
     private Instant lastTicketSent;
 
@@ -32,6 +35,7 @@ public class TicketResponse {
                 .holderRef(ticket.getHolderRef())
                 .eventId(ticket.getEvent() != null ? ticket.getEvent().getId() : null)
                 .ticketType(ticket.getTicketType() != null ? TicketTypeResponse.from(ticket.getTicketType()) : null)
+                .status(ticket.getStatus() != null ? ticket.getStatus().name() : null)
                 .lastTicketSent(ticket.getLastTicketSent())
                 .build();
     }

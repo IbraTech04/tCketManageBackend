@@ -104,7 +104,8 @@ public class EventController {
 
     @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @PostMapping("/{id}/zones")
-    public ResponseEntity<ZoneResponse> addZoneToEvent(@PathVariable UUID id, @RequestBody AddZoneRequest request) {
+    public ResponseEntity<ZoneResponse> addZoneToEvent(
+            @PathVariable UUID id, @Valid @RequestBody AddZoneRequest request) {
         ZoneResponse created = ZoneResponse.from(eventService.addZoneToEvent(id, request.getZoneName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

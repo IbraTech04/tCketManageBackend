@@ -1,6 +1,8 @@
 package com.ibrasoft.tcketmanagebackend.payment;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +21,15 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "tcketmanage.payments")
 @Data
+@Slf4j
 public class PaymentProperties {
+
+    /**
+     * Property path named verbatim in the startup warning below. Kept as a constant so a future
+     * rename of the DMARC switch cannot leave the operator chasing a property that no longer exists.
+     */
+    private static final String DMARC_ENABLED_PROPERTY =
+            "tcketmanage.payments.interac.imap.dmarc.enabled";
 
     /** Provider id used when an order request doesn't specify one. */
     private String defaultProvider = "mock";
@@ -37,6 +47,28 @@ public class PaymentProperties {
     private Mock mock = new Mock();
     private Stripe stripe = new Stripe();
     private Interac interac = new Interac();
+
+    /**
+     * SECURITY: shouts at startup when the IMAP auto-confirmation listener is live but DMARC
+     * enforcement is off.
+     */
+    @PostConstruct
+    void warnIfDmarcDisabledWithImapListener() {
+        if (!interac.getImap().isEnabled() || interac.getImap().getDmarc().isEnabled()) {
+            return;
+        }
+        log.error("""
+                SECURITY: the Interac IMAP auto-confirmation listener is ENABLED but DMARC \
+                enforcement is DISABLED. Inbound e-Transfer notifications are being trusted on a \
+                From-header match alone, and From headers are spoofable — anyone who learns an \
+                order's reference code can forge a deposit notification and have the order marked \
+                PAID. Set {}=true (and \
+                tcketmanage.payments.interac.imap.dmarc.authserv-id to the authserv-id your \
+                receiving mail server stamps on Authentication-Results) before taking real money. \
+                Leave it off ONLY if your provider does not stamp that header, in which case \
+                enabling it would quarantine every payment.""",
+                DMARC_ENABLED_PROPERTY);
+    }
 
     @Data
     public static class Mock {
