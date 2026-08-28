@@ -1,9 +1,12 @@
 package com.ibrasoft.tcketmanagebackend.controller;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
+import com.ibrasoft.tcketmanagebackend.model.dto.request.DenyQuarantineRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.OrderResponse;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
+import com.ibrasoft.tcketmanagebackend.payment.RefundService;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderAccessPolicy;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderCreationResult;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderService;
@@ -25,6 +28,7 @@ public class OrderController {
     private final OrderService orderService;
     private final PaymentConfirmationService confirmationService;
     private final OrderAccessPolicy accessPolicy;
+    private final RefundService refundService;
 
     // Operator/support order book. Provide exactly one of eventId (all orders for an event) or
     // externalRef (all orders for a host-owned owner ref). A host's own "my orders for the logged-in
@@ -33,12 +37,15 @@ public class OrderController {
     @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping
     public List<OrderResponse> getOrders(@RequestParam(required = false) UUID eventId,
-                                         @RequestParam(required = false) String externalRef) {
+                                         @RequestParam(required = false) String externalRef,
+                                         @RequestParam(required = false) OrderStatus status) {
         if ((eventId == null) == (externalRef == null)) {
             throw new IllegalArgumentException("Provide exactly one of 'eventId' or 'externalRef'");
         }
+        // `status` narrows the event order book (used by the quarantine/refund queues). It is not
+        // offered on the externalRef path, which answers "this owner's orders" in full.
         List<Order> orders = eventId != null
-                ? orderService.getOrdersByEvent(eventId)
+                ? orderService.getOrdersByEvent(eventId, status)
                 : orderService.getOrdersByExternalRef(externalRef);
         return orders.stream()
                 .map(OrderResponse::from)
@@ -79,5 +86,48 @@ public class OrderController {
     @PostMapping("/{id}/confirm-manual-payment")
     public OrderResponse confirmManualPayment(@PathVariable UUID id) {
         return OrderResponse.from(confirmationService.confirmPayment(id, null));
+    }
+
+    /**
+     * Operator approval of a quarantined payment: the held seats are fulfilled and the order settles
+     * to {@code PAID}. Kept distinct from {@code confirm-manual-payment} so a mismatched-amount order
+     * can't be cleared by the normal confirm button — approving a quarantine is a deliberate act.
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PostMapping("/{id}/quarantine/approve")
+    public OrderResponse approveQuarantine(@PathVariable UUID id) {
+        return OrderResponse.from(confirmationService.approveQuarantine(id));
+    }
+
+    /**
+     * Operator denial of a quarantined payment: releases the held seats and either cancels the order
+     * or queues it for refund, per {@link DenyQuarantineRequest#isFundsReceived()}.
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PostMapping("/{id}/quarantine/deny")
+    public OrderResponse denyQuarantine(@PathVariable UUID id,
+                                        @RequestBody(required = false) DenyQuarantineRequest request) {
+        boolean fundsReceived = request != null && request.isFundsReceived();
+        return OrderResponse.from(confirmationService.denyQuarantine(id, fundsReceived));
+    }
+
+    /**
+     * Refunds a paid order: voids its tickets, releases their seats, and triggers the provider refund.
+     * Settles to {@code REFUNDED} (automatic provider) or {@code REFUND_PENDING} (manual payout).
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PostMapping("/{id}/refund")
+    public OrderResponse refundOrder(@PathVariable UUID id) {
+        return OrderResponse.from(refundService.refundOrder(id));
+    }
+
+    /**
+     * Marks a {@code REFUND_PENDING} order as {@code REFUNDED} once the operator has paid the manual
+     * refund out of band.
+     */
+    @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
+    @PostMapping("/{id}/refund/complete")
+    public OrderResponse completeRefund(@PathVariable UUID id) {
+        return OrderResponse.from(refundService.markRefundComplete(id));
     }
 }
