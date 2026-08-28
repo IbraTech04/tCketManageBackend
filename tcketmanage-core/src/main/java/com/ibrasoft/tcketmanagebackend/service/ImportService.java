@@ -51,15 +51,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ImportService {
-
-    /**
-     * Default ceiling on CSV data rows per import. Sized to be far above any plausible real roster
-     * (the largest events this runs for are in the low thousands of attendees) while still bounding
-     * the single-transaction batch to something a modest heap and a normal statement timeout can
-     * absorb. Operators with a genuinely larger roster raise the property or split the file.
-     */
-    static final int DEFAULT_MAX_ROWS = 10_000;
-
     /**
      * Ticket-holder name column width, mirroring {@code Ticket.firstName}/{@code lastName}'s
      * {@code @Size(max = 50)}. Checked here so an over-long cell is reported as a row error the
@@ -83,8 +74,8 @@ public class ImportService {
      * property source; tests that exercise the cap set it directly.
      */
     @Setter(AccessLevel.PACKAGE)
-    @Value("${tcketmanage.import.max-rows:" + DEFAULT_MAX_ROWS + "}")
-    private int maxRows = DEFAULT_MAX_ROWS;
+    @Value("${tcketmanage.import.max-rows:10000}")
+    private int maxRows;
 
     @Transactional
     public ImportResult importAttendees(UUID eventId, MultipartFile file, ImportConfig cfg) {
@@ -164,18 +155,7 @@ public class ImportService {
         }
 
         if (errors.isEmpty()) {
-            // Reserve capacity (may throw ConflictException → 409 and roll back) then persist.
-            //
-            // DEADLOCK SAFETY — do NOT "simplify" this back to perTypeCount.forEach(...).
-            // Each reserve() is a conditional UPDATE that takes the ticket_types row lock, so an
-            // import spanning several types acquires several row locks inside one transaction.
-            // docs/LOCKING.MD rule 2 ("ticket-type rows in UUID order") requires every multi-type
-            // path to acquire them in the same global order; InventoryService.tryReserveAll and
-            // releaseAll both wrap their maps in a TreeMap for exactly this reason. A HashMap
-            // iterates in hash-bucket order, which differs from UUID order and differs between maps,
-            // so an import and a concurrent order touching the same two shared types could each
-            // hold the row the other wants. The TreeMap is the fix; it is the only thing keeping
-            // this path consistent with every other reserver in the system.
+            // avoid deadlocks by going in a deterministic order
             new TreeMap<>(perTypeCount).forEach(inventoryService::reserve);
             ticketRepository.saveAll(toSave);
         }
@@ -204,27 +184,6 @@ public class ImportService {
         throw new IllegalArgumentException("No ticket type for row and no default configured");
     }
 
-    /**
-     * Rejects a row whose email address JavaMail cannot parse as a deliverable RFC-822 address.
-     *
-     * <p>SECURITY: this is <em>not</em> a header-injection fix — there is none to make here.
-     * {@link InternetAddress#parse} rejects the CR/LF that a header-injection payload needs, and the
-     * mailer runs subjects through {@code MimeUtility.encodeText}, so a malformed address could never
-     * have forged headers. The value is failing the import <em>loudly and per row</em> instead of
-     * persisting a ticket whose holder can never be emailed: bulk delivery is a separate, later,
-     * asynchronous job ({@code TicketDeliveryService}), so without this check a garbage address shows
-     * up only as one failed send buried in a job that already reported success for the import.
-     *
-     * <p>Validated with JavaMail rather than a hand-rolled regex deliberately: JavaMail is the exact
-     * parser the delivery path will later hand the address to, so "accepted here" and "sendable
-     * later" cannot disagree.
-     *
-     * <p>The bare-addr-spec check is not redundant. JavaMail happily parses the display-name form
-     * ({@code Jane Doe <jane@x.com>}), but the cell is stored verbatim into {@code Ticket.email},
-     * whose {@code @Email} constraint rejects that form — so accepting it here would just move the
-     * failure to Hibernate's flush, which aborts the whole import with a 500 naming no row. Requiring
-     * the cell to be exactly the address it parses to keeps both validators in agreement.
-     */
     private String requireDeliverableEmail(String email) {
         requireLength(email, MAX_EMAIL_LENGTH, "Email");
         try {

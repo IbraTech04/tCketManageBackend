@@ -51,20 +51,6 @@ public class PaymentProperties {
     /**
      * SECURITY: shouts at startup when the IMAP auto-confirmation listener is live but DMARC
      * enforcement is off.
-     *
-     * <p>In that configuration the <em>only</em> thing standing between an attacker and a free
-     * confirmed order is a {@code From:} header match against
-     * {@link Imap#expectedSenders} — and {@code From:} is trivially spoofable. Anyone who can guess
-     * or observe a reference code can then mail the listener a forged "you have received an
-     * e-Transfer" notification and have the order marked PAID. Turning DMARC on closes it: the
-     * verdict then comes from the receiving server's own {@code Authentication-Results} header,
-     * scoped to a matching {@code authserv-id}, and every non-passing path quarantines.
-     *
-     * <p>Rejected alternative: defaulting {@link Dmarc#enabled} to {@code true}. See the Javadoc on
-     * {@link Dmarc} — a deployment whose mailbox provider does not stamp the header would quarantine
-     * every single payment on upgrade, converting a security default into an outage. Rejected
-     * alternative 2: refusing to start. Same objection, and it would take the whole host application
-     * down over a payment sub-feature. So: start, but make it impossible to claim nobody was told.
      */
     @PostConstruct
     void warnIfDmarcDisabledWithImapListener() {
