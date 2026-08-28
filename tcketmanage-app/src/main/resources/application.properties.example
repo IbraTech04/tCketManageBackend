@@ -88,6 +88,33 @@ tcketmanage.cors.allowed-origins=*
 # core discovers it by type, so the bean name doesn't matter.
 
 # =============================================================================
+# Attendee CSV import
+# =============================================================================
+# Ceiling on data rows accepted by POST <base-path>/events/{id}/imports. A file
+# with more rows is rejected outright (400) — nothing is partially imported.
+#
+# Why a row cap when the multipart limits below already cap the upload: those cap
+# BYTES, and rows are tiny. A minimal row ("A,B,a@b.co,GA\n") is ~14 bytes, so the
+# 1 MB file limit still admits roughly 75,000 of them. The import runs as ONE
+# transaction that holds every parsed Ticket in memory before flushing, which is
+# what makes the row count — not the byte count — the number that has to be bounded.
+#
+# 10000 is far above any real roster here (the largest events run to the low
+# thousands) and low enough that the batch stays inside a normal heap and
+# statement timeout. Raise it if you genuinely have a bigger roster, or split the
+# file; do not raise it to work around a slow import.
+tcketmanage.import.max-rows=10000
+
+# --- Multipart upload limits ---
+# Restated explicitly rather than left to Spring Boot's defaults (which are these
+# exact values) so the import's byte ceiling is visible next to its row ceiling
+# instead of being an invisible framework default someone has to go look up.
+# max-file-size bounds the CSV itself; max-request-size bounds the whole multipart
+# body, which for this endpoint is the CSV plus the JSON `config` part.
+spring.servlet.multipart.max-file-size=1MB
+spring.servlet.multipart.max-request-size=10MB
+
+# =============================================================================
 # Payments
 # =============================================================================
 # Active provider when an order doesn't specify one: mock | interac | stripe.
@@ -137,6 +164,22 @@ tcketmanage.payments.interac.imap.review-folder=NeedsReview
 tcketmanage.payments.interac.imap.require-exact-amount=true
 
 # --- Interac DMARC enforcement (opt-in; off keeps From-match-only behaviour) ---
+# TURN THIS ON IN PRODUCTION. It is the single most important payment setting in
+# this file. With the IMAP listener enabled and this off, the only thing making a
+# "you have received an e-Transfer" email trustworthy is that its From: header
+# matches expected-senders above — and From: is trivially forged. Anyone who
+# learns an order's reference code can mail the listener a fake deposit
+# notification and have that order marked PAID, for free.
+#
+# With it on, the verdict comes from your own receiving mail server's
+# Authentication-Results header (scoped to the authserv-id below, so a forged
+# Authentication-Results line pasted into the message body is ignored), and every
+# non-passing path quarantines to review-folder instead of confirming.
+#
+# It ships off, not on, only because a mailbox provider that does not stamp that
+# header would quarantine 100% of payments the moment you upgraded. Check whether
+# yours stamps it (look at the raw source of any received message), then flip it.
+# The app logs an ERROR at startup for as long as the listener runs without it.
 tcketmanage.payments.interac.imap.dmarc.enabled=false
 # Required when enabled: the authserv-id your receiving server stamps on
 # Authentication-Results (e.g. mail.yourdomain.com).

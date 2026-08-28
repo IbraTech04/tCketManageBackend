@@ -4,15 +4,32 @@
 #
 # App is served on http://localhost:8080 (Swagger UI at /swagger-ui.html).
 # Then drive load with:  python scripts/stress_test.py
+#
+# DB_PASSWORD is REQUIRED and deliberately has no default:
+#   DB_PASSWORD=$(openssl rand -base64 24) docker compose up --build
+# The `:?` form makes Compose refuse to start when it is unset. It previously
+# defaulted to the literal `tcket`, which meant every copy of this repo booted a
+# Postgres with the same well-known credentials — and because compose files get
+# copied to real hosts, "just for stress testing" is exactly how that password
+# reaches production. Failing to start is the only default that can't be ignored.
+#
+# UPGRADING from a stack that used the old `tcket` default: Postgres only applies
+# POSTGRES_PASSWORD when it initialises an empty data directory, so an existing
+# `pgdata` volume keeps the old password and the app will fail to authenticate.
+# Wipe it first (this destroys the stress-test data, which is disposable):
+#   docker compose down -v
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: tcketmanage
       POSTGRES_USER: tcket
-      POSTGRES_PASSWORD: tcket
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set - generate one with openssl rand -base64 24}
+    # No `ports:` mapping. The app reaches Postgres over the compose network, so
+    # publishing 5432 only exposes the database to every process on the host (and,
+    # on a Docker host with a public interface, past the firewall — Docker writes
+    # its own iptables rules). Add `-p 5432:5432` ad hoc via an override file if
+    # you need psql from outside the network.
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +47,9 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/tcketmanage
       DB_USERNAME: tcket
-      DB_PASSWORD: tcket
+      # Same required variable as the db service above — one source of truth, so the
+      # two can never drift into "app can't authenticate against its own database".
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set - generate one with openssl rand -base64 24}
       # Keep email OFF for stress runs (see application-prod.properties).
       APP_EMAIL_ENABLED: "false"
       PAYMENTS_MOCK_AUTOCONFIRM: "true"
