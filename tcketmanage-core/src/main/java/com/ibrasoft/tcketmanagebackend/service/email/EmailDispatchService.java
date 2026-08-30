@@ -102,14 +102,23 @@ public class EmailDispatchService {
     }
 
     /**
-     * Pushes a snapshot to the job's STOMP destination. The prefix is configuration rather than a
-     * constant because core no longer owns the message broker; see
-     *  {@code WebSocketDestinationRequirement},
-     * which verifies at startup that the broker in force actually serves it.
+     * Pushes a snapshot to the job's STOMP destination.
+     *
+     * <p>SECURITY: what goes out is {@link EmailJobStatus#broadcastView()}, not the status object.
+     * A broadcast reaches every subscriber to the destination, so it must not carry
+     * {@code lastEmail} — the recipient of each ticket as it is processed, which over a bulk resend
+     * is the whole attendee roster. The snapshot endpoint
+     * ({@code GET <base-path>/email-jobs/{jobId}}) is gated on {@code canManageEvents()} and still
+     * returns the full object.
+     *
+     * <p>The prefix is configuration rather than a constant because core no longer owns the message
+     * broker; see {@code WebSocketDestinationRequirement}, which verifies at startup that the broker
+     * in force actually serves it.
      */
     private void publish(EmailJobStatus status) {
         messagingTemplate.convertAndSend(
-                properties.getWebsocket().emailJobDestination(status.getJobId()), status);
+                properties.getWebsocket().emailJobDestination(status.getJobId()),
+                status.broadcastView());
     }
 
     private record Delivery(String email, boolean success) {}
