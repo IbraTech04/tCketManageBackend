@@ -10,7 +10,9 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import jakarta.validation.constraints.Email;
 
 import java.time.Instant;
@@ -29,15 +31,14 @@ import java.util.UUID;
 public class Ticket {
 
     /**
-     * The unique identifier for the ticket.
-     *
-     * This ID acts as both a primary key for the database, and a value to be used in QR Code Generation
+     * The unique identifier for the ticket. This ID acts as both a primary key for the database,
+     * and a value to be used in QR Code Generation
      */
     @Id
     private UUID ID;
 
     /**
-     * The event this ticket is for.
+     * The event this ticket is for. EAGER fetch for async ticket email sender
      */
     @ManyToOne
     @JoinColumn(name = "event_id")
@@ -64,19 +65,14 @@ public class Ticket {
     @NotBlank
     private String email;
 
+    /**
+     * The type this ticket was issued as. EAGER for the same reason as {@link #event}
+     */
     @ManyToOne
     @JoinColumn(name = "ticket_type_id")
     @NotNull
     private TicketType ticketType;
 
-    /**
-     * Opaque, host-owned reference identifying who <em>holds</em> this ticket (i.e. who may use/show
-     * it), as distinct from who purchased the order ({@code Order.externalRef}). Core never interprets
-     * it; it is indexed for reverse lookup ({@code TicketRepository.findByHolderRef}) so an embedding
-     * host can render a "my tickets / wallet" view. Defaulted to the purchasing order's
-     * {@code externalRef} at issuance; any later transfer/reassignment (and its auditing) is the host's
-     * concern. {@code null} for anonymous/guest orders.
-     */
     @Column(name = "holder_ref", length = 200)
     private String holderRef;
 
@@ -88,12 +84,11 @@ public class Ticket {
     @Builder.Default
     private TicketStatus status = TicketStatus.ACTIVE;
 
-    /**
-     * The order this ticket was issued from, if any (tickets are materialized on payment).
-     */
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Order order;
 
     /**

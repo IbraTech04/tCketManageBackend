@@ -42,8 +42,9 @@ public class ScanEventService {
     private final CryptoService cryptoService;
 
     /**
-     * Scans a ticket from its signed QR payload: decodes, verifies the signature, then performs the
-     * normal zone scan. Rejects malformed or tampered payloads before touching the database.
+     * Scans a ticket from its signed QR payload: decodes, verifies the signature, checks the token is
+     * actually bound to the ticket's current event, then performs the normal zone scan. Rejects
+     * malformed, tampered and mis-bound payloads before touching the entitlement tables.
      */
     public ScanResult scanByQr(String qrPayload, UUID zoneId) {
         TicketQRData data;
@@ -52,11 +53,23 @@ public class ScanEventService {
         } catch (Exception e) {
             return new ScanResult(ScanOutcome.INVALID_QR, "Invalid or tampered QR code", null);
         }
-        return scanTicket(data.getTicketID(), zoneId);
+        return scan(data.getTicketID(), zoneId, data.getEventID());
     }
 
     public ScanResult scanTicket(UUID ticketId, UUID zoneId) {
+        return scan(ticketId, zoneId, null);
+    }
+
+    private ScanResult scan(UUID ticketId, UUID zoneId, UUID tokenEventId) {
         Ticket ticket = requireTicket(ticketId);
+
+        if (tokenEventId != null) {
+            UUID ticketEventId = ticket.getEvent() != null ? ticket.getEvent().getId() : null;
+            if (!tokenEventId.equals(ticketEventId)) {
+                return new ScanResult(ScanOutcome.INVALID_QR,
+                    "QR code was not issued for this ticket's event", null);
+            }
+        }
 
         if (ticket.getStatus() != TicketStatus.ACTIVE) {
             return new ScanResult(ScanOutcome.NO_ZONE_ENTITLEMENT,
@@ -92,11 +105,16 @@ public class ScanEventService {
             ScanEventResponse.from(saved));
     }
 
+
     @Transactional(readOnly = true)
     public ValidationResult validateTicketForZone(UUID ticketId, UUID zoneId) {
-        // Plain read, no lock: validation is advisory, and a PESSIMISTIC_WRITE inside a read-only
-        // transaction is rejected outright by PostgreSQL. Only scanTicket needs the ticket-row lock.
         Ticket ticket = requireTicketReadOnly(ticketId);
+
+        if (ticket.getStatus() != TicketStatus.ACTIVE) {
+            return new ValidationResult(false,
+                String.format("Ticket status is %s, expected ACTIVE", ticket.getStatus()));
+        }
+
         requireZone(zoneId);
 
         Optional<ZoneEntitlement> entitlement = findEntitlement(ticket, zoneId);
