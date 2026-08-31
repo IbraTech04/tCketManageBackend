@@ -31,42 +31,78 @@ public class ReferenceCodeMatcher {
     public static final int NO_MATCH = Integer.MAX_VALUE;
 
     /**
-     * The fewest single-character edits that turn some run of the memo into {@code referenceCode}.
+     * The closest run of a memo to a reference code, and how far off it was.
+     *
+     * <p>{@code excerpt} is the normalized run itself, not just its score, because a caller showing
+     * an operator <em>which</em> characters differ has to highlight the same run the number came
+     * from. Recomputing it on the other side of an API would be a second source of truth that can
+     * disagree with the first — and a highlight that contradicts its own score is worse than none.
+     *
+     * @param distance edits from {@code excerpt} to the code, or {@link #NO_MATCH}
+     * @param excerpt  the matched run, or {@code null} when there was no match
+     */
+    public record Match(int distance, String excerpt) {
+        public boolean matched() {
+            return distance != NO_MATCH;
+        }
+    }
+
+    private static final Match NONE = new Match(NO_MATCH, null);
+
+    /**
+     * The fewest single-character edits that turn some run of the memo into {@code referenceCode},
+     * with the run that achieved it.
      *
      * <p>Compares the code against every window of the normalized memo rather than the memo as a
      * whole, so surrounding words ("tickets ABCD-EFGH thanks") don't count as edits. Windows one
      * shorter and one longer than the code are included so a dropped or doubled character stays a
      * distance of 1 instead of cascading.
+     */
+    public Match bestMatch(String memo, String referenceCode) {
+        String code = normalize(referenceCode);
+        String text = normalize(memo);
+        if (code.isEmpty() || text.isEmpty()) {
+            return NONE;
+        }
+
+        int best = NO_MATCH;
+        String bestRun = null;
+        // A window shorter than the code costs deletions, longer costs insertions; +/-1 covers the
+        // single dropped or doubled character that dominates real typos without inviting long windows
+        // to look artificially close.
+        //
+        // Equal length is tried FIRST and ties are kept (strict < below), which decides which run a
+        // caller highlights when several score the same. "ABCDEFGX" and "ABCDEFG" are both one edit
+        // from "ABCDEFGH", but only the equal-length run aligns character-for-character against the
+        // code — highlighting the short one would claim the buyer dropped a character when they
+        // actually mistyped one.
+        for (int len : new int[]{code.length(), code.length() - 1, code.length() + 1}) {
+            if (len <= 0 || len > text.length()) {
+                continue;
+            }
+            for (int start = 0; start + len <= text.length(); start++) {
+                String run = text.substring(start, start + len);
+                int d = levenshtein(run, code, best);
+                if (d < best) {
+                    best = d;
+                    bestRun = run;
+                    if (best == 0) {
+                        return new Match(0, run); // exact run present; nothing can beat it
+                    }
+                }
+            }
+        }
+        return best <= MAX_USEFUL_DISTANCE ? new Match(best, bestRun) : NONE;
+    }
+
+    /**
+     * The distance alone, for callers that only rank.
      *
      * @return the distance, or {@link #NO_MATCH} if either side is empty or nothing scores within
      *         {@link #MAX_USEFUL_DISTANCE}
      */
     public int distance(String memo, String referenceCode) {
-        String code = normalize(referenceCode);
-        String text = normalize(memo);
-        if (code.isEmpty() || text.isEmpty()) {
-            return NO_MATCH;
-        }
-
-        int best = NO_MATCH;
-        // A window shorter than the code costs deletions, longer costs insertions; +/-1 covers the
-        // single dropped or doubled character that dominates real typos without inviting long windows
-        // to look artificially close.
-        for (int len = code.length() - 1; len <= code.length() + 1; len++) {
-            if (len <= 0 || len > text.length()) {
-                continue;
-            }
-            for (int start = 0; start + len <= text.length(); start++) {
-                int d = levenshtein(text.substring(start, start + len), code, best);
-                if (d < best) {
-                    best = d;
-                    if (best == 0) {
-                        return 0; // exact run present; nothing can beat it
-                    }
-                }
-            }
-        }
-        return best <= MAX_USEFUL_DISTANCE ? best : NO_MATCH;
+        return bestMatch(memo, referenceCode).distance();
     }
 
     /** Whether the memo is close enough to {@code referenceCode} to be worth showing an operator. */

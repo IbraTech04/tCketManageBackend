@@ -37,7 +37,11 @@ If the memo carries no usable code, **no order is found at all**. Nothing moves,
 
 **Ranking leans on the reference code, because that is the only signal that reflects what the buyer actually typed.** The common failure is a mistyped code, not a missing one, and the code alphabet omits I, L, O and U precisely because those are the characters people transcribe wrong — so a botched code is usually one or two edits from a real one. `ReferenceCodeMatcher` slides the code over the memo and scores the closest run, so a chatty memo costs nothing and a one-character slip stays a distance of 1.
 
-Amount and timing are tiebreakers only, and deliberately so: every buyer of the same tier pays the identical amount, so amount alone is nearly worthless as evidence, and a bank's name for an account routinely isn't the buyer's name on the order.
+Amount and timing are tiebreakers only, and deliberately so: every buyer of the same tier pays the identical amount, so amount alone is nearly worthless as evidence.
+
+**The payer's name is used to find orders, never to judge them.** When the memo is blank the code matcher has nothing at all to work with, and an operator would go hunting through the order book for a name they recognise — so `PayerNameMatcher` does that lookup instead, comparing the bank's name for the payer against the local part of `buyerEmail` and the attendee names on the line items. A full match (every token of the payer's name accounted for, and at least two of them) is enough to put an order in the list; a partial one never is, because a shared surname would drag half the order book into every queue entry.
+
+Those candidates sort below every code match — `NO_MATCH` is `Integer.MAX_VALUE`, so this falls out of the existing ordering rather than needing a special case — and they are flagged `suggestedByNameOnly` so the UI can say plainly that it is showing a lookup, not a finding. A bank's name for an account routinely isn't the buyer's name on the order: a parent pays for a student, a joint account carries one name, a legal name meets a preferred one. The name is how you find the order; the amount and the timing are how you check it.
 
 **Nothing is matched automatically.** The suggestions carry their evidence — code distance, whether the amount agrees, whether the payment landed inside the hold window — so an operator can check the claim rather than defer to a score. This is the same rule `EtransferConfirmationService` already follows: never settle on a partial match, and a near-miss on eight characters is exactly that.
 

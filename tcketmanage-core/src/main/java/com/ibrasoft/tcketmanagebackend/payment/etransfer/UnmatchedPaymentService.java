@@ -59,6 +59,7 @@ public class UnmatchedPaymentService {
     private final OrderRepository orderRepository;
     private final PaymentConfirmationService paymentConfirmationService;
     private final ReferenceCodeMatcher matcher;
+    private final PayerNameMatcher nameMatcher;
 
     /** Every payment still awaiting a decision, newest first. */
     @Transactional(readOnly = true)
@@ -80,16 +81,23 @@ public class UnmatchedPaymentService {
      * candidate can appear here — that means the code was fine and something else (a wrong amount)
      * stopped the automatic match, which is worth showing rather than hiding.
      *
-     * <p>Returns empty rather than a list of weak guesses when nothing scores within
-     * {@link ReferenceCodeMatcher#MAX_USEFUL_DISTANCE}. An empty list is a useful answer: it tells the
-     * operator this payment probably isn't one of ours.
+     * <p>A candidate also gets in on a {@code FULL} payer-name match alone. That is the blank-memo
+     * case, where the code matcher has nothing to work with and an operator would otherwise go
+     * hunting through the order book by hand — recognising the name is exactly what they would do,
+     * so this does the lookup for them. Because {@code NO_MATCH} is {@code Integer.MAX_VALUE}, those
+     * candidates sort below every code match without needing a special case: a name is a way to find
+     * an order, never a reason to prefer one.
+     *
+     * <p>Still returns empty rather than a list of weak guesses when neither signal lands. An empty
+     * list is a useful answer: it tells the operator this payment probably isn't one of ours.
      */
     @Transactional(readOnly = true)
     public List<PaymentMatchSuggestion> suggestionsFor(EtransferReceipt receipt) {
         String memo = memoHaystack(receipt);
         return orderRepository.findByStatusInWithItems(MATCHABLE).stream()
                 .map(order -> score(receipt, order, memo))
-                .filter(s -> s.getCodeDistance() != ReferenceCodeMatcher.NO_MATCH)
+                .filter(s -> s.getCodeDistance() != ReferenceCodeMatcher.NO_MATCH
+                        || PayerNameMatcher.NameMatch.FULL.name().equals(s.getNameMatch()))
                 .sorted(Comparator
                         .comparingInt(PaymentMatchSuggestion::getCodeDistance)
                         .thenComparing(PaymentMatchSuggestion::isAmountMatches, Comparator.reverseOrder())
@@ -118,7 +126,12 @@ public class UnmatchedPaymentService {
                 && receipt.getAmount().compareTo(order.getAmountTotal()) == 0
                 && (receipt.getCurrency() == null || receipt.getCurrency().equalsIgnoreCase(order.getCurrency()));
 
+        ReferenceCodeMatcher.Match match = matcher.bestMatch(memo, order.getReferenceCode());
+        PayerNameMatcher.NameMatch name = nameMatcher.match(receipt.getSenderName(), order);
+
         return PaymentMatchSuggestion.builder()
+                .nameMatch(name.name())
+                .suggestedByNameOnly(!match.matched() && name == PayerNameMatcher.NameMatch.FULL)
                 .orderId(order.getId())
                 .referenceCode(order.getReferenceCode())
                 .buyerEmail(order.getBuyerEmail())
@@ -127,7 +140,8 @@ public class UnmatchedPaymentService {
                 .currency(order.getCurrency())
                 .createdAt(order.getCreatedAt())
                 .expiresAt(order.getExpiresAt())
-                .codeDistance(matcher.distance(memo, order.getReferenceCode()))
+                .codeDistance(match.distance())
+                .memoExcerpt(match.excerpt())
                 .amountMatches(amountMatches)
                 .withinHoldWindow(withinHoldWindow(receipt.getEmailReceivedAt(), order))
                 .build();
