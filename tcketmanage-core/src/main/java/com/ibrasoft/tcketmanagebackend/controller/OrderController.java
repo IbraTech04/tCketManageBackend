@@ -2,11 +2,14 @@ package com.ibrasoft.tcketmanagebackend.controller;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.DenyQuarantineRequest;
+import com.ibrasoft.tcketmanagebackend.model.dto.request.PaymentReferenceRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.OrderResponse;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
+import com.ibrasoft.tcketmanagebackend.model.payment.EtransferReceipt;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
 import com.ibrasoft.tcketmanagebackend.payment.RefundService;
+import com.ibrasoft.tcketmanagebackend.payment.etransfer.EtransferReceiptLookup;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderAccessPolicy;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderCreationResult;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderService;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -29,6 +33,7 @@ public class OrderController {
     private final PaymentConfirmationService confirmationService;
     private final OrderAccessPolicy accessPolicy;
     private final RefundService refundService;
+    private final EtransferReceiptLookup receiptLookup;
 
     // Operator/support order book. Provide exactly one of eventId (all orders for an event) or
     // externalRef (all orders for a host-owned owner ref). A host's own "my orders for the logged-in
@@ -47,8 +52,11 @@ public class OrderController {
         List<Order> orders = eventId != null
                 ? orderService.getOrdersByEvent(eventId, status)
                 : orderService.getOrdersByExternalRef(externalRef);
+        // One query for the whole page's receipts, not one per order.
+        Map<UUID, EtransferReceipt> receipts = receiptLookup.latestByOrderId(
+                orders.stream().map(Order::getId).toList());
         return orders.stream()
-                .map(OrderResponse::from)
+                .map(order -> OrderResponse.from(order, null, receipts.get(order.getId())))
                 .toList();
     }
 
@@ -68,7 +76,7 @@ public class OrderController {
     public OrderResponse getOrder(@PathVariable UUID id) {
         Order order = orderService.getOrder(id);
         accessPolicy.requireAccess(order.getExternalRef(), "Order");
-        return OrderResponse.from(order);
+        return OrderResponse.from(order, null, receiptLookup.latestFor(id));
     }
 
     // SECURITY: see getOrder. Ownership is checked before cancelling, not after — a denied caller
@@ -81,22 +89,68 @@ public class OrderController {
 
     /**
      * Operator confirmation that a manual payment (e.g. an Interac e-Transfer) was received.
+     *
+     * <p>The body is optional, so a bare POST still confirms without recording a reference. Supplying
+     * one settles the order and records the reference in a single call: the operator has the
+     * notification in front of them and can read the reference number straight off it.
+     *
+     * <p>This is the {@code AWAITING_PAYMENT} path only. A quarantined order is resolved through
+     * {@link #approveQuarantine}, deliberately kept separate so the check that held the order cannot
+     * be cleared from the routine confirm button.
+     *
+     * <p>Deliberately not {@code @Valid}: "no reference" is a legitimate confirmation, and callers
+     * express it both by omitting the body and by sending an empty one. Validating the shared DTO
+     * here would reject {@code {}} on its {@code @NotBlank}, which would break every existing caller
+     * that posts an empty object. A blank reference is normalized to none instead.
      */
     @PreAuthorize("@tcketmanageAuthz.canAdminister()")
     @PostMapping("/{id}/confirm-manual-payment")
-    public OrderResponse confirmManualPayment(@PathVariable UUID id) {
-        return OrderResponse.from(confirmationService.confirmPayment(id, null));
+    public OrderResponse confirmManualPayment(@PathVariable UUID id,
+                                              @RequestBody(required = false) PaymentReferenceRequest request) {
+        String submitted = request != null ? request.getProviderRef() : null;
+        String providerRef = (submitted == null || submitted.isBlank()) ? null : submitted.trim();
+        return OrderResponse.from(confirmationService.confirmPayment(id, providerRef),
+                null, receiptLookup.latestFor(id));
+    }
+
+    /**
+     * Corrects the provider-side payment reference on an order without touching its status.
+     *
+     * <p>For the e-Transfer that never got matched automatically - the buyer mistyped the memo code,
+     * omitted it, or the mailbox listener was down - so an operator can attach the real Interac
+     * reference number after the fact. Separate from confirmation because an already-paid order must
+     * be correctable without re-running fulfillment.
+     *
+     * <p>PUT rather than PATCH: the reference is the whole of this sub-resource, so replacing it is a
+     * PUT, and {@code WebConfig}'s CORS policy does not list PATCH - a PATCH here would die at the
+     * browser preflight rather than at anything a caller could see.
+     */
+    @PreAuthorize("@tcketmanageAuthz.canAdminister()")
+    @PutMapping("/{id}/payment-reference")
+    public OrderResponse updatePaymentReference(@PathVariable UUID id,
+                                                @Valid @RequestBody PaymentReferenceRequest request) {
+        return OrderResponse.from(confirmationService.updatePaymentReference(id, request.getProviderRef()),
+                null, receiptLookup.latestFor(id));
     }
 
     /**
      * Operator approval of a quarantined payment: the held seats are fulfilled and the order settles
      * to {@code PAID}. Kept distinct from {@code confirm-manual-payment} so a mismatched-amount order
      * can't be cleared by the normal confirm button — approving a quarantine is a deliberate act.
+     *
+     * <p>Takes the same optional reference body as the manual-confirm endpoint, and for the same
+     * reason it is not {@code @Valid}: approving without a reference stays legal, and an empty body
+     * means exactly that. A quarantined e-Transfer is usually one the listener could not tie to the
+     * order, so the approving operator is the one person holding its reference number.
      */
     @PreAuthorize("hasRole(@tcketmanageRoles.admin)")
     @PostMapping("/{id}/quarantine/approve")
-    public OrderResponse approveQuarantine(@PathVariable UUID id) {
-        return OrderResponse.from(confirmationService.approveQuarantine(id));
+    public OrderResponse approveQuarantine(@PathVariable UUID id,
+                                           @RequestBody(required = false) PaymentReferenceRequest request) {
+        String submitted = request != null ? request.getProviderRef() : null;
+        String providerRef = (submitted == null || submitted.isBlank()) ? null : submitted.trim();
+        return OrderResponse.from(confirmationService.approveQuarantine(id, providerRef),
+                null, receiptLookup.latestFor(id));
     }
 
     /**

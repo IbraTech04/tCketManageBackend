@@ -49,6 +49,25 @@ public class InteracEmailParser {
             "Reference Number:\\s*([A-Za-z0-9]+)", Pattern.CASE_INSENSITIVE);
 
     /**
+     * "Sent From: &lt;payer name&gt;", bounded by the next known label. Interac reports the payer's
+     * name here as their bank holds it, which is the value an operator reconciles against - not the
+     * {@code From} display name, which is whatever the mail client chose to render.
+     */
+    private static final Pattern SENT_FROM = Pattern.compile(
+            "Sent From:\\s*(.*?)\\s*(?=Amount:|Message:|Date:|Reference Number:|$)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+
+    /**
+     * "Date: &lt;date&gt;", bounded by the next known label. Captured verbatim and never parsed: the
+     * value is date-only, unzoned, and localized (the FR notification writes the month in French), so
+     * turning it into a temporal type would invent precision the email doesn't carry. See
+     * {@link ParsedEtransfer#bodyDateText()}.
+     */
+    private static final Pattern BODY_DATE = Pattern.compile(
+            "Date:\\s*(.*?)\\s*(?=Reference Number:|Sent From:|Amount:|Message:|$)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+
+    /**
      * Parses the notification body.
      *
      * @param html the raw HTML of the email
@@ -72,8 +91,11 @@ public class InteracEmailParser {
         String message = firstGroup(MESSAGE, text);
         String referenceCode = extractCode(message);
         String interacReferenceNumber = firstGroup(REFERENCE_NUMBER, text);
+        String sentFrom = firstGroup(SENT_FROM, text);
+        String bodyDateText = firstGroup(BODY_DATE, text);
 
-        return new ParsedEtransfer(message, referenceCode, amount, currency, interacReferenceNumber);
+        return new ParsedEtransfer(message, referenceCode, amount, currency, interacReferenceNumber,
+                sentFrom, bodyDateText);
     }
 
     /** Returns the canonical {@code XXXX-XXXX} code embedded in the memo, or {@code null} if none. */

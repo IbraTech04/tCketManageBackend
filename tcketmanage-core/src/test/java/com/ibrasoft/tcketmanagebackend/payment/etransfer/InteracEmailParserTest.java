@@ -38,8 +38,32 @@ class InteracEmailParserTest {
         assertEquals("CAD", parsed.currency());
         assertEquals("C1AZNtDBMJ5B", parsed.interacReferenceNumber());
         assertEquals("skmatebroaed", parsed.message());
+        assertEquals("SAMMY NIMOUR", parsed.sentFrom());
+        // Kept verbatim: date-only and localized, so it is never turned into a temporal type.
+        assertEquals("June 6, 2026", parsed.bodyDateText());
         // The sample memo has no dash-delimited code, so nothing is extracted (→ would quarantine).
         assertNull(parsed.referenceCode());
+    }
+
+    @Test
+    void sentFromAndDateAreNullWhenAbsent() {
+        // A notification missing those labels still parses; the fields are simply unknown.
+        String html = "<html><body><p>Message: </p><p>ABCD-EFGH</p><p>Amount: </p><p>$10.00 (CAD)</p></body></html>";
+        ParsedEtransfer parsed = parser.parse(html);
+
+        assertNull(parsed.sentFrom());
+        assertNull(parsed.bodyDateText());
+        assertEquals("ABCD-EFGH", parsed.referenceCode());
+    }
+
+    @Test
+    void memoIsNotSwallowedByTheSentFromAndDateLabels() {
+        // The four labels bound each other; a memo must not absorb the fields that follow it.
+        ParsedEtransfer parsed = parser.parse(email("ABCD-EFGH thanks", "$10.00 (CAD)"));
+
+        assertEquals("ABCD-EFGH thanks", parsed.message());
+        assertEquals("June 6, 2026", parsed.bodyDateText());
+        assertEquals("SAMMY NIMOUR", parsed.sentFrom());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.ibrasoft.tcketmanagebackend.payment.etransfer;
 
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
+import com.ibrasoft.tcketmanagebackend.model.payment.EtransferReceipt;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentConfirmationService;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProperties;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
@@ -23,6 +24,11 @@ import java.util.UUID;
  * <p>Confirmation funnels through {@link PaymentConfirmationService#confirmPayment}, so it inherits
  * that method's row-locked idempotency: a redelivered email resolves to a no-op rather than
  * double-fulfilling.
+ *
+ * <p>Every path through {@link #process} - including the ones that reject an email before it is even
+ * parsed - writes an {@link EtransferReceipt}, so the facts about a payment survive in the database
+ * rather than only in a log line. See {@link EtransferReceiptRecorder} for why that write is
+ * deliberately kept out of the confirmation transaction.
  */
 @Service
 @AllArgsConstructor
@@ -35,18 +41,41 @@ public class EtransferConfirmationService {
     private final OrderRepository orderRepository;
     private final PaymentConfirmationService paymentConfirmationService;
     private final PaymentProperties paymentProperties;
+    private final EtransferReceiptRecorder receiptRecorder;
 
     /**
-     * Validates and (if everything checks out) confirms the order described by an email.
+     * Validates and (if everything checks out) confirms the order described by an email, then records
+     * a receipt of what was decided.
      *
-     * @param fromAddress           the bare {@code From} address of the message (no display name)
-     * @param authenticationResults every {@code Authentication-Results} header value in message order,
-     *                              or {@code null}; consulted only when DMARC enforcement is enabled
-     * @param html                  the email's HTML body
+     * @param email the received notification, as the IMAP listener saw it
      * @return the outcome; the caller quarantines the message when {@link EtransferOutcome#isQuarantined()}
      */
-    public EtransferOutcome process(String fromAddress, String[] authenticationResults, String html) {
+    public EtransferOutcome process(ReceivedEmail email) {
+        // Seed the receipt with what's known from the envelope alone, so an email rejected at the
+        // sender or DMARC gate - before there is anything to parse - still leaves a usable record.
+        EtransferReceipt receipt = EtransferReceipt.builder()
+                .senderEmail(truncate(email.fromAddress(), 255))
+                .senderDisplayName(truncate(email.fromDisplayName(), 255))
+                .emailReceivedAt(email.receivedAt())
+                .build();
+
+        EtransferOutcome outcome = evaluate(email, receipt);
+
+        receipt.setOutcome(outcome.isQuarantined()
+                ? EtransferReceipt.Outcome.QUARANTINED
+                : EtransferReceipt.Outcome.CONFIRMED);
+        receipt.setDetail(truncate(outcome.detail(), 1000));
+        recordQuietly(receipt);
+        return outcome;
+    }
+
+    /**
+     * The confirmation policy proper, populating {@code receipt} with each fact as it is established.
+     * Returning early is fine: whatever has been set by then is what the receipt carries.
+     */
+    private EtransferOutcome evaluate(ReceivedEmail email, EtransferReceipt receipt) {
         PaymentProperties.Imap config = paymentProperties.getInterac().getImap();
+        String fromAddress = email.fromAddress();
 
         // 1. Trust the sender. The From header is spoofable on its own; matching the configured
         // Interac address is the baseline guard, optionally hardened by the DMARC check below.
@@ -57,7 +86,8 @@ public class EtransferConfirmationService {
         // 2. Enforce DMARC (opt-in). The receiving mail server already validated SPF/DKIM and recorded
         // the verdict; we require an aligned dmarc=pass so a spoofed From can't ride the step-1 match.
         if (config.getDmarc().isEnabled()) {
-            EtransferOutcome dmarcFailure = checkDmarc(fromAddress, authenticationResults, config.getDmarc());
+            EtransferOutcome dmarcFailure =
+                    checkDmarc(fromAddress, email.authenticationResults(), config.getDmarc());
             if (dmarcFailure != null) {
                 return dmarcFailure;
             }
@@ -66,10 +96,11 @@ public class EtransferConfirmationService {
         // 3. Parse. A missing amount means this isn't a recognizable notification.
         ParsedEtransfer parsed;
         try {
-            parsed = parser.parse(html);
+            parsed = parser.parse(email.html());
         } catch (EtransferParseException e) {
             return quarantine("unparseable email: " + e.getMessage());
         }
+        applyParsed(receipt, parsed);
 
         // 4. The memo must contain one of our reference codes.
         if (parsed.referenceCode() == null) {
@@ -82,6 +113,7 @@ public class EtransferConfirmationService {
             return quarantine("no order for reference code " + parsed.referenceCode());
         }
         Order order = match.get();
+        receipt.setOrder(order);
 
         // 6. Amount (and currency) must match exactly, when required. Defence-in-depth on top of the
         // unguessable code: a transfer for the wrong amount never silently fulfills an order.
@@ -102,10 +134,49 @@ public class EtransferConfirmationService {
             return quarantine("confirmation failed for order " + order.getId() + ": " + e.getMessage(), order.getId());
         }
 
-        log.info("e-Transfer confirmed order {} (code {}, {} {}, interac ref {})",
+        log.info("e-Transfer confirmed order {} (code {}, {} {}, interac ref {}, from {}, received {})",
                 order.getId(), parsed.referenceCode(), parsed.amount().toPlainString(),
-                parsed.currency(), parsed.interacReferenceNumber());
+                parsed.currency(), parsed.interacReferenceNumber(), parsed.sentFrom(),
+                email.receivedAt());
         return EtransferOutcome.confirmed("order " + order.getId() + " confirmed via e-Transfer");
+    }
+
+    /**
+     * Copies the parsed body fields onto the receipt, truncated to their column widths. A chatty memo
+     * or an unexpectedly long name must not be the thing that fails the audit write.
+     */
+    private static void applyParsed(EtransferReceipt receipt, ParsedEtransfer parsed) {
+        receipt.setMemo(truncate(parsed.message(), 500));
+        receipt.setReferenceCode(truncate(parsed.referenceCode(), 32));
+        receipt.setAmount(parsed.amount());
+        receipt.setCurrency(truncate(parsed.currency(), 3));
+        receipt.setInteracReference(truncate(parsed.interacReferenceNumber(), 64));
+        receipt.setSenderName(truncate(parsed.sentFrom(), 255));
+        receipt.setBodyDateText(truncate(parsed.bodyDateText(), 64));
+    }
+
+    /**
+     * Saves the receipt, swallowing any failure. The receipt is an audit record; losing one is bad,
+     * but letting it throw would propagate into {@link EtransferMailHandler}, which would then
+     * quarantine an email whose payment had already been confirmed.
+     */
+    private void recordQuietly(EtransferReceipt receipt) {
+        try {
+            receiptRecorder.record(receipt);
+        } catch (RuntimeException e) {
+            log.error("Could not record e-Transfer receipt (outcome {}, interac ref {}); "
+                            + "the payment decision itself stands.",
+                    receipt.getOutcome(), receipt.getInteracReference(), e);
+        }
+    }
+
+    /** Trims and caps a value to its column width, {@code null}-safe. */
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.length() <= max ? trimmed : trimmed.substring(0, max);
     }
 
     /**

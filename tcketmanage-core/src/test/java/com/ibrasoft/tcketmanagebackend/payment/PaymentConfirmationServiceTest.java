@@ -266,4 +266,87 @@ class PaymentConfirmationServiceTest {
         assertThrows(ConflictException.class, () -> confirmationService.denyQuarantine(o.getId(), false));
         verify(inventoryService, never()).releaseAll(any());
     }
+
+    @Test
+    void approve_withReference_recordsItWhileSettling() {
+        // The quarantined e-Transfer is typically one the listener never tied to this order, so its
+        // reference was never captured; the approving operator is the one holding it.
+        Order o = order(OrderStatus.QUARANTINED);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.approveQuarantine(o.getId(), "  C1AZNtDBMJ5B  ");
+
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        assertEquals("C1AZNtDBMJ5B", result.getProviderRef());
+        verify(fulfillmentService, times(1)).fulfill(o);
+    }
+
+    @Test
+    void approve_withoutReference_leavesAnExistingOneAlone() {
+        Order o = order(OrderStatus.QUARANTINED);
+        o.setProviderRef("INTREF1");
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.approveQuarantine(o.getId(), "   ");
+
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        assertEquals("INTREF1", result.getProviderRef());
+    }
+
+    // --- manual payment-reference bookkeeping ---
+
+    @Test
+    void updateReference_recordsRefWithoutChangingStatus() {
+        // The e-Transfer that never matched: an operator attaches the real reference after the fact.
+        Order o = order(OrderStatus.AWAITING_PAYMENT);
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.updatePaymentReference(o.getId(), "C1AZNtDBMJ5B");
+
+        assertEquals("C1AZNtDBMJ5B", result.getProviderRef());
+        assertEquals(OrderStatus.AWAITING_PAYMENT, result.getStatus());
+        assertNull(result.getPaidAt());
+        // Bookkeeping only: correcting a reference must never re-issue tickets or notify the buyer.
+        verifyNoInteractions(fulfillmentService, eventPublisher);
+    }
+
+    @Test
+    void updateReference_correctsAnAlreadyPaidOrder() {
+        Order o = order(OrderStatus.PAID);
+        o.setProviderRef("typo");
+        when(orderRepository.findByIdForUpdate(o.getId())).thenReturn(Optional.of(o));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Order result = confirmationService.updatePaymentReference(o.getId(), "  C1AZNtDBMJ5B  ");
+
+        assertEquals("C1AZNtDBMJ5B", result.getProviderRef());
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        verifyNoInteractions(fulfillmentService);
+    }
+
+    @Test
+    void updateReference_blankIsRejectedRatherThanClearingIt() {
+        Order o = order(OrderStatus.PAID);
+        o.setProviderRef("INTREF1");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> confirmationService.updatePaymentReference(o.getId(), "   "));
+        assertThrows(IllegalArgumentException.class,
+                () -> confirmationService.updatePaymentReference(o.getId(), null));
+        // Rejected before the row is even loaded, so nothing was touched.
+        verifyNoInteractions(orderRepository);
+        assertEquals("INTREF1", o.getProviderRef());
+    }
+
+    @Test
+    void updateReference_notFound_throws() {
+        UUID id = UUID.randomUUID();
+        when(orderRepository.findByIdForUpdate(id)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> confirmationService.updatePaymentReference(id, "INTREF1"));
+    }
 }
