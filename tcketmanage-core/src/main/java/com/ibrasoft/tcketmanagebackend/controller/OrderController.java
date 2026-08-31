@@ -37,16 +37,6 @@ public class OrderController {
     private final RefundService refundService;
     private final EtransferReceiptLookup receiptLookup;
 
-    // Operator/support order book. Provide exactly one of eventId (all orders for an event),
-    // externalRef (all orders for a host-owned owner ref), or referenceCode (the single order
-    // bearing that XXXX-XXXX code). A host's own "my orders for the logged-in user" should NOT use
-    // this role-guarded endpoint; it should query OrderService/OrderRepository directly with the
-    // authenticated user's ref.
-    //
-    // referenceCode backs resolving an unmatched payment by hand: when the memo gave the matcher
-    // nothing to work with, an operator identifies the order themselves and names it by the code they
-    // can see in this order book. It returns a list of zero or one so a miss is an empty result the
-    // caller can report as "no such code", rather than a 404 they have to special-case.
     @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping
     public List<OrderResponse> getOrders(@RequestParam(required = false) UUID eventId,
@@ -83,11 +73,6 @@ public class OrderController {
                 .body(OrderResponse.from(result.order(), result.initiation()));
     }
 
-    // SECURITY: no role guard — buyers self-serve, including guest checkout, so this must stay
-    // reachable unauthenticated. Ownership is enforced per-entity instead: once the order is loaded,
-    // OrderAccessPolicy checks its externalRef against the caller. An order with no owner (guest)
-    // falls back to the capability-URL model, where possession of the unguessable UUID is the
-    // permission. See OrderAccessPolicy for why this cannot be expressed as a URL-level rule.
     @GetMapping("/{id}")
     public OrderResponse getOrder(@PathVariable UUID id) {
         Order order = orderService.getOrder(id);
