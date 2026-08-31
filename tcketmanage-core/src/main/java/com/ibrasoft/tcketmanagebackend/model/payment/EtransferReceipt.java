@@ -133,6 +133,26 @@ public class EtransferReceipt {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    /**
+     * When an operator wrote this payment off as never going to match an order, or {@code null} while
+     * it is still open. Together with a null {@link #order} this is what defines the review queue:
+     * unmatched and not yet dismissed.
+     *
+     * <p>Linking a receipt to an order removes it from the queue by filling {@link #order} in, so
+     * dismissal exists only for the payments that genuinely match nothing — a transfer sent to the
+     * wrong organisation, or a duplicate that is not owed tickets. Without an exit those rows would
+     * sit at the top of the queue forever and operators would learn to ignore it.
+     */
+    private Instant dismissedAt;
+
+    /** Who dismissed it, for the audit trail. {@code null} unless {@link #dismissedAt} is set. */
+    @Column(length = 255)
+    private String dismissedBy;
+
+    /** Optional operator note explaining the dismissal. */
+    @Column(length = 500)
+    private String dismissalNote;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +48,18 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByEventIdAndStatus(UUID eventId, OrderStatus status);
 
     List<Order> findByStatus(OrderStatus status);
+
+    /**
+     * Orders in any of the given states, with their line items initialized.
+     *
+     * <p>Used to build the candidate set when suggesting which order an unmatched e-Transfer belongs
+     * to. Deliberately not paged: the caller passes only the unsettled states, which for a club-scale
+     * deployment is a small set, and the matcher has to score every one of them to rank them. If this
+     * ever grows past a few thousand rows the candidate set should be narrowed by date before the
+     * query, not paged after it.
+     */
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.status IN :statuses")
+    List<Order> findByStatusInWithItems(Collection<OrderStatus> statuses);
 
     boolean existsByReferenceCode(String code);
 }

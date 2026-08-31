@@ -20,4 +20,13 @@ public interface EtransferReceiptRepository extends JpaRepository<EtransferRecei
 
     /** Receipts for one order, newest first. */
     List<EtransferReceipt> findByOrderIdOrderByCreatedAtDesc(UUID orderId);
+
+    /**
+     * The review queue: payments that reached us but belong to no order and have not been written off.
+     *
+     * <p>Newest first, because an operator working the queue wants today's payment before one from
+     * three weeks ago — the buyer of a recent one is still waiting and their seats may still be
+     * holdable. Matches the partial index added in V4.
+     */
+    List<EtransferReceipt> findByOrderIsNullAndDismissedAtIsNullOrderByEmailReceivedAtDesc();
 }
