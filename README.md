@@ -1,6 +1,7 @@
 # tCketManage Backend
 
-REST API backend for tCketManage — a lightweight, self-hostable event ticketing system. Handles event management, ticket generation, order/payment processing, QR-based ticket scanning, and email delivery.
+REST API backend for tCketManage; a lightweight, self-hostable event ticketing system. 
+Handles event management, ticket generation, order/payment processing, QR-based ticket scanning, and email delivery.
 
 Built with **Spring Boot 3.5 + Java 21**, backed by PostgreSQL and designed for high concurrency and data integrity.
 
@@ -8,7 +9,7 @@ Built with **Spring Boot 3.5 + Java 21**, backed by PostgreSQL and designed for 
 
 - **Events & Zones:** Create events with named access zones; ticket types carry per-zone entitlements and entry limits.
 - **Ticket Types:** Define multiple ticket types per event with different prices, zone access, and availability windows (coming soon).
-- **Orders & Payments:** Pluggable payment provider system with support for Interac E-Transfer (See [ETRANSFER.MD](./ETRANSFER.MD)). Stripe integration is on the roadmap.
+- **Orders & Payments:** Pluggable payment provider system with support for Interac E-Transfer (See [ETRANSFER.MD](./docs/ETRANSFER.MD)). Stripe integration is on the roadmap.
 - **Ticket generation and MailMerge:** Tickets are signed with ED25519, embedded in a QR code, and delivered via email using an HTML/SVG template
 - **QR scanning:** Scan endpoint validates a ticket's cryptographic signature and records scan events per zone
 - **CSV import:** Bulk-import existing attendees from spreadsheets, with automatic ticket generation and email delivery
@@ -83,7 +84,7 @@ All routes are under `/tcket/`.
 
 ## Concurrency & Locking Strategy
 
-Selling tickets is a classic oversell problem: many buyers can race for the last seat of a ticket type, and the same order can receive a confirmation, a buyer-cancel, and an expiry sweep at nearly the same moment. The majority of the time spent architecting tCketManage was designing a locking strategy that enables high concurrency without risking oversells or invalid states, and without holding large locks for large periods of time. If you'd like to learn more about the approach I took, check out [LOCKING.MD](./DOCS/LOCKING.MD).
+Selling tickets is a classic oversell problem: many buyers can race for the last seat of a ticket type, and the same order can receive a confirmation, a buyer-cancel, and an expiry sweep at nearly the same moment. The majority of the time spent architecting tCketManage was designing a locking strategy that enables high concurrency without risking oversells or invalid states, and without holding large locks for large periods of time. If you'd like to learn more about the approach I took, check out [LOCKING.MD](./docs/LOCKING.MD).
 
 ## Tech Stack
 
@@ -99,7 +100,7 @@ Selling tickets is a classic oversell problem: many buyers can race for the last
 - Stripe payment implementation
 - Ticket theming w/ AI designer
 - Move to Spring Boot 4 + Java 25?
-- Anything in [Plan.md](./DOCS/Plan.md)
+- Anything in [Plan.md](./docs/Plan.md)
 - Upgrade to Spring Boot 4 and Java 25?  
 - Anything else that's broken or missing! This is a very early-stage project, so expect rough edges. Contributions welcome!
 
