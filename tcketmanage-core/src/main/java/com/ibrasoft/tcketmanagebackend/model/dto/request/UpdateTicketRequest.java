@@ -3,7 +3,6 @@ package com.ibrasoft.tcketmanagebackend.model.dto.request;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,7 +14,6 @@ import java.util.UUID;
  */
 @Setter
 @Getter
-@AllArgsConstructor
 @NoArgsConstructor
 public class UpdateTicketRequest {
     /** Requires at least one non-whitespace character; {@code null} means "leave unchanged". */
@@ -34,9 +32,14 @@ public class UpdateTicketRequest {
     @Pattern(regexp = NOT_BLANK, message = "email must not be blank")
     private String email;
 
-    @Setter
     private UUID ticketTypeId;
 
+    public UpdateTicketRequest(String firstName, String lastName, String email, UUID ticketTypeId) {
+        setFirstName(firstName);
+        setLastName(lastName);
+        setEmail(email);
+        this.ticketTypeId = ticketTypeId;
+    }
 
     /* Not lombok for normalization purposes */
     private static String normalize(String value) {

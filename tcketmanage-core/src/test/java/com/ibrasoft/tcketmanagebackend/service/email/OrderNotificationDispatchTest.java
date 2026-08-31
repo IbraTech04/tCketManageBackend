@@ -19,15 +19,14 @@ import static org.mockito.Mockito.*;
 
 /**
  * Covers the order-notification half of {@link EmailDispatchService}: it loads the order through the
- * transactional {@link OrderEmailSender} (never the repository directly, so the lazy items are
+ * transactional {@link EmailTransactions} (never the repository directly, so the lazy items are
  * initialized), and tolerates an order that has been deleted between the transition committing and
  * this async send running.
  */
 @ExtendWith(MockitoExtension.class)
 class OrderNotificationDispatchTest {
 
-    @Mock private TicketEmailSender ticketEmailSender;
-    @Mock private OrderEmailSender orderEmailSender;
+    @Mock private EmailTransactions emailTransactions;
     @Mock private EmailService emailService;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private TcketManageProperties properties;
@@ -47,7 +46,7 @@ class OrderNotificationDispatchTest {
     @Test
     void sendOrderNotification_loadsOrderAndSendsRequestedNotice() {
         Order order = expiredOrder();
-        when(orderEmailSender.load(order.getId())).thenReturn(Optional.of(order));
+        when(emailTransactions.loadOrder(order.getId())).thenReturn(Optional.of(order));
 
         dispatchService.sendOrderNotificationInBackground(order.getId(), OrderNotification.EXPIRED);
 
@@ -59,7 +58,7 @@ class OrderNotificationDispatchTest {
         // The async send runs after commit, so the order can be deleted out from under it. An
         // exception here would surface on the email pool with nothing to catch it.
         UUID id = UUID.randomUUID();
-        when(orderEmailSender.load(id)).thenReturn(Optional.empty());
+        when(emailTransactions.loadOrder(id)).thenReturn(Optional.empty());
 
         dispatchService.sendOrderNotificationInBackground(id, OrderNotification.CANCELLED);
 
@@ -69,12 +68,13 @@ class OrderNotificationDispatchTest {
     @Test
     void sendOrderNotification_neverTouchesTheTicketPath() {
         Order order = expiredOrder();
-        when(orderEmailSender.load(order.getId())).thenReturn(Optional.of(order));
+        when(emailTransactions.loadOrder(order.getId())).thenReturn(Optional.of(order));
 
         dispatchService.sendOrderNotificationInBackground(
                 order.getId(), OrderNotification.REFUND_PENDING);
 
-        verifyNoInteractions(ticketEmailSender);
+        verify(emailTransactions, never()).loadTicket(any());
+        verify(emailTransactions, never()).markTicketSent(any());
         verify(emailService, never()).sendTicket(any());
     }
 }

@@ -40,8 +40,7 @@ public class EmailDispatchService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailDispatchService.class);
 
-    private final TicketEmailSender ticketEmailSender;
-    private final OrderEmailSender orderEmailSender;
+    private final EmailTransactions emailTransactions;
     private final EmailService emailService;
     private final SimpMessagingTemplate messagingTemplate;
     private final TcketManageProperties properties;
@@ -59,7 +58,7 @@ public class EmailDispatchService {
      */
     @Async("emailExecutor")
     public void sendOrderNotificationInBackground(UUID orderId, OrderNotification notification) {
-        Optional<Order> loaded = orderEmailSender.load(orderId);
+        Optional<Order> loaded = emailTransactions.loadOrder(orderId);
         if (loaded.isEmpty()) {
             log.warn("Skipping {} notification for order {}: no longer exists", notification, orderId);
             return;
@@ -87,7 +86,7 @@ public class EmailDispatchService {
      * progress display) alongside the outcome.
      */
     private Delivery deliver(UUID ticketId) {
-        Optional<Ticket> loaded = ticketEmailSender.load(ticketId);
+        Optional<Ticket> loaded = emailTransactions.loadTicket(ticketId);
         if (loaded.isEmpty()) {
             log.warn("Skipping email for ticket {}: no longer exists", ticketId);
             return new Delivery(null, false);
@@ -95,7 +94,7 @@ public class EmailDispatchService {
         Ticket ticket = loaded.get();
         boolean sent = emailService.sendTicket(ticket);
         if (sent) {
-            ticketEmailSender.markSent(ticketId);
+            emailTransactions.markTicketSent(ticketId);
         }
         return new Delivery(ticket.getEmail(), sent);
     }
