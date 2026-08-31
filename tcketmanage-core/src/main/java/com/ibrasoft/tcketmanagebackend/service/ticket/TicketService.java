@@ -4,13 +4,10 @@ import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
-import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
-import com.ibrasoft.tcketmanagebackend.model.ticket.event.ScanEvent;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
-import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
@@ -21,7 +18,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,7 +30,6 @@ import java.util.UUID;
 public class TicketService {
 
     private TicketRepository ticketRepository;
-    private ScanEventRepository scanEventRepository;
     private TicketTypeRepository ticketTypeRepository;
     private EventRepository eventRepository;
     private InventoryService inventoryService;
@@ -219,19 +214,6 @@ public class TicketService {
     @Transactional(readOnly = true)
     public Optional<Ticket> findTicketById(UUID id) {
         return ticketRepository.findById(id);
-    }
-
-    public void recordTicketScan(Ticket ticket, Zone zone) {
-        scanEventRepository.save(ScanEvent.builder()
-                .ticketId(ticket.getID())
-                .zone(zone)
-                .timestamp(Instant.now())
-                .build());
-    }
-
-    @Transactional(readOnly = true)
-    public int getZoneEntryCount(Ticket ticket, Zone zone) {
-        return scanEventRepository.countZoneEntriesByTicketId(ticket.getID(), zone.getId());
     }
 
     @Transactional(readOnly = true)

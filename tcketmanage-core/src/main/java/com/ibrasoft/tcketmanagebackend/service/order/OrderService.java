@@ -96,11 +96,6 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
-    @Transactional(readOnly = true)
-    public List<Order> getOrdersByEvent(UUID eventId) {
-        return getOrdersByEvent(eventId, null);
-    }
-
     /**
      * Orders for an event, optionally filtered by status. The status filter backs the operator
      * review queues (e.g. {@code QUARANTINED} orders awaiting an approve/deny decision).

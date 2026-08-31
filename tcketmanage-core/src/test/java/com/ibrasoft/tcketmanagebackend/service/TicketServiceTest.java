@@ -4,13 +4,11 @@ import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
-import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketStatus;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
-import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
@@ -53,7 +51,6 @@ class TicketServiceTest {
     private static final UUID TYPE_HIGH = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
     @Mock private TicketRepository ticketRepository;
-    @Mock private ScanEventRepository scanEventRepository;
     @Mock private TicketTypeRepository ticketTypeRepository;
     @Mock private EventRepository eventRepository;
     @Mock private InventoryService inventoryService;
@@ -452,20 +449,6 @@ class TicketServiceTest {
         UUID id = UUID.randomUUID();
         when(ticketRepository.findById(id)).thenReturn(Optional.empty());
         assertTrue(ticketService.findTicketById(id).isEmpty());
-    }
-
-    @Test
-    void testGetZoneEntryCount_ReturnsCorrectCount() {
-        UUID ticketId = UUID.randomUUID();
-        UUID zoneId = UUID.randomUUID();
-        Ticket ticket = Ticket.builder().ID(ticketId).firstName("John").lastName("Doe")
-                .email("john@example.com").build();
-        Zone zone = Zone.builder().id(zoneId).name("VIP Zone").build();
-
-        when(scanEventRepository.countZoneEntriesByTicketId(ticketId, zoneId)).thenReturn(3);
-
-        assertEquals(3, ticketService.getZoneEntryCount(ticket, zone));
-        verify(scanEventRepository).countZoneEntriesByTicketId(ticketId, zoneId);
     }
 
     // --- revoke / reactivate -----------------------------------------------------------------

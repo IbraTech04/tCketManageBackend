@@ -41,7 +41,7 @@ public class Ticket {
      * The event this ticket is for. EAGER fetch for async ticket email sender
      */
     @ManyToOne
-    @JoinColumn(name = "event_id")
+    @JoinColumn(name = "event_id", nullable = false)
     private Event event;
 
     /**
@@ -69,7 +69,7 @@ public class Ticket {
      * The type this ticket was issued as. EAGER for the same reason as {@link #event}
      */
     @ManyToOne
-    @JoinColumn(name = "ticket_type_id")
+    @JoinColumn(name = "ticket_type_id", nullable = false)
     @NotNull
     private TicketType ticketType;
 
