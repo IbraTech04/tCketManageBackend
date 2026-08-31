@@ -72,12 +72,10 @@ public class TicketTypeService {
     }
 
     public TicketType updateTicketType(UUID id, UpdateTicketTypeRequest request) {
-        // Locked load: the flush rewrites the row, so reading it unlocked would let a concurrent
-        // seat reservation land between load and flush and be silently overwritten.
         TicketType existing = ticketTypeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found with id: " + id));
-
         validateWindow(request.getSalesStartAt(), request.getSalesEndAt());
+
         if (request.isCapacityPresent()) {
             validateCapacityReduction(existing, request.getCapacity());
         }
@@ -96,6 +94,7 @@ public class TicketTypeService {
         // so re-entitling a zone the ticket type already had would otherwise INSERT a duplicate
         // (ticket_type_id, zone_id) row before the old one is deleted, violating the unique constraint.
         existing.getEntitlements().clear();
+        // hacky OSIV fix until we remove that requirement
         entityManager.flush();
         applyEntitlements(existing, existing.getEvent().getId(), request.getEntitlements());
 
@@ -123,21 +122,6 @@ public class TicketTypeService {
 
     /**
      * Rejects an edit that would leave a ticket type holding more seats than it is allowed to sell.
-     *
-     * <p>The read of {@code reservedCount} is trustworthy because the caller loaded the row through
-     * {@code findByIdForUpdate}: the check and the subsequent flush are serialized against every
-     * concurrent {@code reserve} on the same row, and because that locked load is the first read of
-     * the row in this transaction it cannot return a stale persistence-context instance (the
-     * pitfall documented in docs/LOCKING.MD). A reservation racing this edit therefore either
-     * commits before the lock is taken — and is seen here — or waits behind it and is then
-     * evaluated against the new capacity.
-     *
-     * <p>Rejected alternatives: (a) clamping capacity up to {@code reservedCount} silently, which
-     * hands the operator a limit they did not ask for and hides a real oversell from them;
-     * (b) letting it through and relying on the V2 CHECK constraint, which surfaces as an opaque
-     * {@code DataIntegrityViolationException}/500 instead of a 409 the caller can act on — and on
-     * SQLite, where that constraint deliberately does not exist, would not be caught at all.
-     *
      * @throws ConflictException if {@code requested} is a lower cap than the seats already held
      */
     private void validateCapacityReduction(TicketType existing, Integer requested) {
