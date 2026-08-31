@@ -15,6 +15,8 @@ import org.springframework.messaging.MessagingException;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Date;
 
 /**
  * Bridges the IMAP IDLE adapter to {@link EtransferConfirmationService}. For each received message
@@ -53,7 +55,8 @@ class EtransferMailHandler implements MessageHandler {
                 return;
             }
 
-            EtransferOutcome outcome = confirmationService.process(from, authResults, body);
+            EtransferOutcome outcome = confirmationService.process(new ReceivedEmail(
+                    from, extractDisplayName(mail), extractReceivedAt(mail), authResults, body));
             if (outcome.isQuarantined()) {
                 moveToReview(mail);
             }
@@ -76,6 +79,38 @@ class EtransferMailHandler implements MessageHandler {
             return internet.getAddress();
         }
         return from[0].toString();
+    }
+
+    /** Returns the {@code From} display name, or {@code null} when the header carried none. */
+    private static String extractDisplayName(jakarta.mail.Message mail) throws jakarta.mail.MessagingException {
+        jakarta.mail.Address[] from = mail.getFrom();
+        if (from == null || from.length == 0 || !(from[0] instanceof InternetAddress internet)) {
+            return null;
+        }
+        String personal = internet.getPersonal();
+        return (personal == null || personal.isBlank()) ? null : personal.trim();
+    }
+
+    /**
+     * When the mail server took delivery. Prefers the server's own {@code INTERNALDATE} over the
+     * sender-supplied {@code Date} header, since the latter is set by the sending side. Falls back to
+     * now if the store reports neither, so a receipt always has a usable timestamp - the small loss of
+     * fidelity beats leaving the audit record blank.
+     */
+    private static Instant extractReceivedAt(jakarta.mail.Message mail) {
+        try {
+            Date received = mail.getReceivedDate();
+            if (received != null) {
+                return received.toInstant();
+            }
+            Date sent = mail.getSentDate();
+            if (sent != null) {
+                return sent.toInstant();
+            }
+        } catch (jakarta.mail.MessagingException e) {
+            log.debug("Could not read date headers from e-Transfer email; falling back to now.", e);
+        }
+        return Instant.now();
     }
 
     /** Depth-first search for the HTML part, falling back to any text part. */

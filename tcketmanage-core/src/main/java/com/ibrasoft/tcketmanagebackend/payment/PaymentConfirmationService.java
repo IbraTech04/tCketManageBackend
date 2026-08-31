@@ -10,6 +10,8 @@ import com.ibrasoft.tcketmanagebackend.service.order.FulfillmentService;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderNotificationEvent;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,8 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 public class PaymentConfirmationService {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentConfirmationService.class);
 
     private final OrderRepository orderRepository;
     private final FulfillmentService fulfillmentService;
@@ -75,6 +79,36 @@ public class PaymentConfirmationService {
     }
 
     /**
+     * Records the provider-side reference for an order by hand - for Interac, the reference number
+     * printed on an e-Transfer notification that the listener never tied to this order (the buyer
+     * mistyped the memo code, left it out, or the mailbox listener was down).
+     *
+     * <p>Bookkeeping only: unlike {@link #confirmPayment} this changes no status and issues no
+     * tickets, so an operator can correct a reference on an order that is already paid without
+     * re-running fulfillment. It still takes the same row lock, so writing a reference cannot
+     * interleave with a confirmation that is setting one of its own.
+     *
+     * @param providerRef the reference to record; blank is rejected rather than silently clearing a
+     *                    reference that is already there
+     * @throws IllegalArgumentException if {@code providerRef} is null or blank
+     */
+    @Transactional
+    public Order updatePaymentReference(UUID orderId, String providerRef) {
+        if (providerRef == null || providerRef.isBlank()) {
+            throw new IllegalArgumentException("Payment reference must not be blank");
+        }
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        String previous = order.getProviderRef();
+        order.setProviderRef(providerRef.trim());
+        Order saved = orderRepository.save(order);
+        log.info("Payment reference for order {} set to '{}' by hand (was '{}'); status left at {}.",
+                orderId, order.getProviderRef(), previous, order.getStatus());
+        return saved;
+    }
+
+    /**
      * Sets an order aside for an operator after a received payment couldn't be cleanly matched to it
      * (e.g. an e-Transfer arrived referencing this order's code but for the wrong amount). Locks the
      * row like {@link #confirmPayment} so a quarantine can't race a confirmation, and only transitions
@@ -115,6 +149,22 @@ public class PaymentConfirmationService {
      */
     @Transactional
     public Order approveQuarantine(UUID orderId) {
+        return approveQuarantine(orderId, null);
+    }
+
+    /**
+     * As {@link #approveQuarantine(UUID)}, additionally recording the provider-side reference the
+     * operator read off the payment they are approving.
+     *
+     * <p>Worth having as one call rather than two: the quarantined e-Transfer is usually one the
+     * listener could not tie to this order, so its reference was never captured automatically. The
+     * operator resolving the review is the one person holding it.
+     *
+     * @param providerRef the reference to record, or {@code null} to approve without one. Never
+     *                    clears an existing reference.
+     */
+    @Transactional
+    public Order approveQuarantine(UUID orderId, String providerRef) {
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
 
@@ -124,6 +174,9 @@ public class PaymentConfirmationService {
         if (order.getStatus() != OrderStatus.QUARANTINED) {
             throw new ConflictException(
                 "Order " + orderId + " is not quarantined (status " + order.getStatus() + ")");
+        }
+        if (providerRef != null && !providerRef.isBlank()) {
+            order.setProviderRef(providerRef.trim());
         }
         order.setStatus(OrderStatus.PAID);
         order.setPaidAt(Instant.now());
