@@ -47,6 +47,24 @@ public class PaymentMatchSuggestion {
      */
     private String memoExcerpt;
 
+    /**
+     * How much of the payer's name this order accounts for: {@code FULL}, {@code PARTIAL} or
+     * {@code NONE}, across the buyer's email and the attendee names.
+     *
+     * <p>A {@code FULL} match is enough to put an order in this list when the code matched nothing —
+     * that is what stops a blank memo being a dead end. It is <em>not</em> evidence the payment
+     * belongs to the order: a parent pays for a student, a joint account carries one name, a legal
+     * name meets a preferred one. Present it as the reason a candidate is here, never as agreement.
+     */
+    private String nameMatch;
+
+    /**
+     * True when the code matched nothing and only the payer's name put this order in the list. A
+     * client should say so plainly — an operator needs to know they are looking at a lookup, not a
+     * finding.
+     */
+    private boolean suggestedByNameOnly;
+
     /** Whether the received amount equals this order's total, currency included. */
     private boolean amountMatches;
 

@@ -44,7 +44,8 @@ class UnmatchedPaymentServiceTest {
     void setUp() {
         // Real matcher: the ranking is the feature, so mocking it would test nothing.
         service = new UnmatchedPaymentService(
-                receiptRepository, orderRepository, paymentConfirmationService, new ReferenceCodeMatcher());
+                receiptRepository, orderRepository, paymentConfirmationService,
+                new ReferenceCodeMatcher(), new PayerNameMatcher());
     }
 
     private static EtransferReceipt receipt(String memo, String amount) {
@@ -147,6 +148,88 @@ class UnmatchedPaymentServiceTest {
                         && statuses.contains(OrderStatus.CANCELLED)
                         && !statuses.contains(OrderStatus.PAID)
                         && !statuses.contains(OrderStatus.REFUNDED)));
+    }
+
+    // --- payer name as a way to FIND an order, never as evidence ---
+
+    @Test
+    void blankMemo_payerNameSurfacesTheOrder() {
+        // The case this exists for: no code to work with, so the operator would otherwise go
+        // hunting through the order book for a name they recognise.
+        Order o = order("ABCD-EFGH", "35.00", OrderStatus.AWAITING_PAYMENT);
+        o.setBuyerEmail("sammy.nimour@mail.utoronto.ca");
+        when(orderRepository.findByStatusInWithItems(any())).thenReturn(List.of(o));
+
+        EtransferReceipt r = receipt("", "35.00");
+        r.setSenderName("SAMMY NIMOUR");
+
+        List<PaymentMatchSuggestion> suggestions = service.suggestionsFor(r);
+
+        assertEquals(1, suggestions.size());
+        assertEquals("FULL", suggestions.get(0).getNameMatch());
+        // Said plainly, so the operator knows this is a lookup and not a finding.
+        assertTrue(suggestions.get(0).isSuggestedByNameOnly());
+        assertEquals(ReferenceCodeMatcher.NO_MATCH, suggestions.get(0).getCodeDistance());
+    }
+
+    @Test
+    void partialNameMatchNeverSurfacesAnOrderOnItsOwn() {
+        // A shared surname would drag half the order book into every queue entry.
+        Order o = order("ABCD-EFGH", "35.00", OrderStatus.AWAITING_PAYMENT);
+        o.setBuyerEmail("j.nimour@mail.utoronto.ca");
+        when(orderRepository.findByStatusInWithItems(any())).thenReturn(List.of(o));
+
+        EtransferReceipt r = receipt("", "35.00");
+        r.setSenderName("SAMMY NIMOUR");
+
+        assertTrue(service.suggestionsFor(r).isEmpty());
+    }
+
+    @Test
+    void codeMatchesOutrankNameOnlyMatches() {
+        // A name is a way to find an order, never a reason to prefer one.
+        Order byCode = order("ABCD-EFGH", "35.00", OrderStatus.AWAITING_PAYMENT);
+        byCode.setBuyerEmail("someone.else@mail.utoronto.ca");
+        Order byName = order("WXYZ-2345", "35.00", OrderStatus.AWAITING_PAYMENT);
+        byName.setBuyerEmail("sammy.nimour@mail.utoronto.ca");
+        when(orderRepository.findByStatusInWithItems(any())).thenReturn(List.of(byName, byCode));
+
+        EtransferReceipt r = receipt("ABCD-EFGX", "35.00");
+        r.setSenderName("SAMMY NIMOUR");
+
+        List<PaymentMatchSuggestion> suggestions = service.suggestionsFor(r);
+
+        assertEquals(2, suggestions.size());
+        assertEquals(byCode.getId(), suggestions.get(0).getOrderId());
+        assertFalse(suggestions.get(0).isSuggestedByNameOnly());
+        assertEquals(byName.getId(), suggestions.get(1).getOrderId());
+        assertTrue(suggestions.get(1).isSuggestedByNameOnly());
+    }
+
+    @Test
+    void nameMatchIsReportedOnCandidatesFoundByCodeToo() {
+        Order o = order("ABCD-EFGH", "35.00", OrderStatus.AWAITING_PAYMENT);
+        o.setBuyerEmail("sammy.nimour@mail.utoronto.ca");
+        when(orderRepository.findByStatusInWithItems(any())).thenReturn(List.of(o));
+
+        EtransferReceipt r = receipt("ABCD-EFGX", "35.00");
+        r.setSenderName("SAMMY NIMOUR");
+
+        PaymentMatchSuggestion s = service.suggestionsFor(r).get(0);
+        assertEquals("FULL", s.getNameMatch());
+        assertFalse(s.isSuggestedByNameOnly());
+    }
+
+    @Test
+    void noNameAndNoCode_staysEmpty() {
+        Order o = order("ABCD-EFGH", "35.00", OrderStatus.AWAITING_PAYMENT);
+        o.setBuyerEmail("j.chen@mail.utoronto.ca");
+        when(orderRepository.findByStatusInWithItems(any())).thenReturn(List.of(o));
+
+        EtransferReceipt r = receipt("thanks!", "35.00");
+        r.setSenderName("SAMMY NIMOUR");
+
+        assertTrue(service.suggestionsFor(r).isEmpty());
     }
 
     // --- linking ---
