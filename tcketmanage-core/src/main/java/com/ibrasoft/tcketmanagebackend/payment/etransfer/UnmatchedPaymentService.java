@@ -118,6 +118,8 @@ public class UnmatchedPaymentService {
                 && receipt.getAmount().compareTo(order.getAmountTotal()) == 0
                 && (receipt.getCurrency() == null || receipt.getCurrency().equalsIgnoreCase(order.getCurrency()));
 
+        ReferenceCodeMatcher.Match match = matcher.bestMatch(memo, order.getReferenceCode());
+
         return PaymentMatchSuggestion.builder()
                 .orderId(order.getId())
                 .referenceCode(order.getReferenceCode())
@@ -127,7 +129,8 @@ public class UnmatchedPaymentService {
                 .currency(order.getCurrency())
                 .createdAt(order.getCreatedAt())
                 .expiresAt(order.getExpiresAt())
-                .codeDistance(matcher.distance(memo, order.getReferenceCode()))
+                .codeDistance(match.distance())
+                .memoExcerpt(match.excerpt())
                 .amountMatches(amountMatches)
                 .withinHoldWindow(withinHoldWindow(receipt.getEmailReceivedAt(), order))
                 .build();

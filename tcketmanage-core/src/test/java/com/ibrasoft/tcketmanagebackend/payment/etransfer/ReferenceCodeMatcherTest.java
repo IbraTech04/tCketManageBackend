@@ -79,6 +79,26 @@ class ReferenceCodeMatcherTest {
     }
 
     @Test
+    void bestMatchReturnsTheRunTheScoreCameFrom() {
+        // The excerpt is what a client highlights, so it has to be the same run the number came from
+        // — normalized the way the matcher compares, and aligned to the code's length.
+        ReferenceCodeMatcher.Match m = matcher.bestMatch("Tickets ABCD-EFGX thanks!", "ABCD-EFGH");
+
+        assertTrue(m.matched());
+        assertEquals(1, m.distance());
+        assertEquals("ABCDEFGX", m.excerpt());
+    }
+
+    @Test
+    void bestMatchOnNoMatchCarriesNoExcerpt() {
+        ReferenceCodeMatcher.Match m = matcher.bestMatch("thanks for the tickets", "ABCD-EFGH");
+
+        assertFalse(m.matched());
+        assertEquals(ReferenceCodeMatcher.NO_MATCH, m.distance());
+        assertNull(m.excerpt());
+    }
+
+    @Test
     void closerCodeScoresLowerThanFartherOne() {
         // The ranking property the queue depends on: the order the buyer meant sorts first.
         String memo = "order ABCD-EFGX";

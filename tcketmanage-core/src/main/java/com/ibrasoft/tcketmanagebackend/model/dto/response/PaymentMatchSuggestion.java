@@ -36,6 +36,17 @@ public class PaymentMatchSuggestion {
      */
     private int codeDistance;
 
+    /**
+     * The run of the memo that scored {@link #codeDistance}, normalized the way the matcher compares
+     * (uppercase, punctuation stripped), or {@code null} when nothing matched.
+     *
+     * <p>Returned so a client can mark <em>which</em> characters differ, aligned against
+     * {@link #referenceCode}. It is the matcher's own run rather than something the client re-derives:
+     * a highlight computed independently could land on a different run than the score came from, and
+     * a highlight that contradicts its own number is worse than no highlight.
+     */
+    private String memoExcerpt;
+
     /** Whether the received amount equals this order's total, currency included. */
     private boolean amountMatches;
 

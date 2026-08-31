@@ -96,6 +96,8 @@ class UnmatchedPaymentServiceTest {
         PaymentMatchSuggestion s = service.suggestionsFor(receipt("ABCD-EFGX", "35.00")).get(0);
 
         assertEquals(1, s.getCodeDistance());
+        // The excerpt the UI highlights comes from the matcher, not a client re-derivation.
+        assertEquals("ABCDEFGX", s.getMemoExcerpt());
         assertTrue(s.isAmountMatches());
         assertTrue(s.isWithinHoldWindow());
         assertEquals("AWAITING_PAYMENT", s.getStatus());
