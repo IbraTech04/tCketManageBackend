@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("${tcketmanage.base-path:/tcket}/orders")
@@ -35,23 +37,37 @@ public class OrderController {
     private final RefundService refundService;
     private final EtransferReceiptLookup receiptLookup;
 
-    // Operator/support order book. Provide exactly one of eventId (all orders for an event) or
-    // externalRef (all orders for a host-owned owner ref). A host's own "my orders for the logged-in
-    // user" should NOT use this role-guarded endpoint; it should query OrderService/OrderRepository
-    // directly with the authenticated user's ref.
+    // Operator/support order book. Provide exactly one of eventId (all orders for an event),
+    // externalRef (all orders for a host-owned owner ref), or referenceCode (the single order
+    // bearing that XXXX-XXXX code). A host's own "my orders for the logged-in user" should NOT use
+    // this role-guarded endpoint; it should query OrderService/OrderRepository directly with the
+    // authenticated user's ref.
+    //
+    // referenceCode backs resolving an unmatched payment by hand: when the memo gave the matcher
+    // nothing to work with, an operator identifies the order themselves and names it by the code they
+    // can see in this order book. It returns a list of zero or one so a miss is an empty result the
+    // caller can report as "no such code", rather than a 404 they have to special-case.
     @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping
     public List<OrderResponse> getOrders(@RequestParam(required = false) UUID eventId,
                                          @RequestParam(required = false) String externalRef,
+                                         @RequestParam(required = false) String referenceCode,
                                          @RequestParam(required = false) OrderStatus status) {
-        if ((eventId == null) == (externalRef == null)) {
-            throw new IllegalArgumentException("Provide exactly one of 'eventId' or 'externalRef'");
+        long provided = Stream.of(eventId, externalRef, referenceCode).filter(Objects::nonNull).count();
+        if (provided != 1) {
+            throw new IllegalArgumentException(
+                    "Provide exactly one of 'eventId', 'externalRef' or 'referenceCode'");
         }
         // `status` narrows the event order book (used by the quarantine/refund queues). It is not
-        // offered on the externalRef path, which answers "this owner's orders" in full.
-        List<Order> orders = eventId != null
-                ? orderService.getOrdersByEvent(eventId, status)
-                : orderService.getOrdersByExternalRef(externalRef);
+        // offered on the other paths, which answer a specific question in full.
+        List<Order> orders;
+        if (eventId != null) {
+            orders = orderService.getOrdersByEvent(eventId, status);
+        } else if (externalRef != null) {
+            orders = orderService.getOrdersByExternalRef(externalRef);
+        } else {
+            orders = orderService.findByReferenceCode(referenceCode).map(List::of).orElseGet(List::of);
+        }
         // One query for the whole page's receipts, not one per order.
         Map<UUID, EtransferReceipt> receipts = receiptLookup.latestByOrderId(
                 orders.stream().map(Order::getId).toList());

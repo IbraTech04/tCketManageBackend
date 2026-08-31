@@ -224,6 +224,31 @@ class OrderServiceTest {
     }
 
     @Test
+    void findByReferenceCode_normalizesWhatTheOperatorTyped() {
+        // The code is being retyped or pasted off the order book, so case and stray spacing are the
+        // operator's, not the data's.
+        Order o = pendingOrder();
+        when(orderRepository.findByReferenceCode("ABCD-EFGH")).thenReturn(Optional.of(o));
+
+        assertSame(o, orderService.findByReferenceCode("  abcd-efgh  ").orElseThrow());
+    }
+
+    @Test
+    void findByReferenceCode_missIsEmptyNotAnError() {
+        // A wrong code is the operator being told they mistyped it, not an exceptional condition.
+        when(orderRepository.findByReferenceCode("ZZZZ-ZZZZ")).thenReturn(Optional.empty());
+
+        assertTrue(orderService.findByReferenceCode("ZZZZ-ZZZZ").isEmpty());
+    }
+
+    @Test
+    void findByReferenceCode_blankIsEmptyWithoutQuerying() {
+        assertTrue(orderService.findByReferenceCode(null).isEmpty());
+        assertTrue(orderService.findByReferenceCode("   ").isEmpty());
+        verify(orderRepository, never()).findByReferenceCode(any());
+    }
+
+    @Test
     void cancelOrder_awaiting_releasesInventory() {
         Order order = Order.builder().id(UUID.randomUUID()).status(OrderStatus.AWAITING_PAYMENT)
                 .items(List.of(OrderItem.builder().ticketType(ticketType).build())).build();
