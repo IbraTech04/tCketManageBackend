@@ -1,6 +1,7 @@
 package com.ibrasoft.tcketmanagebackend.service.order;
 
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
+import com.ibrasoft.tcketmanagebackend.properties.OrderProperties;
 import com.ibrasoft.tcketmanagebackend.security.AuthorizationGateway;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;

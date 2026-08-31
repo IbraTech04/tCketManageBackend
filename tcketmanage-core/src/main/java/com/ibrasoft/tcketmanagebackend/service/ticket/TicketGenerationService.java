@@ -1,4 +1,4 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.ticket;
 
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
@@ -9,6 +9,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
+import com.ibrasoft.tcketmanagebackend.service.CryptoService;
 import lombok.AllArgsConstructor;
 import org.apache.batik.transcoder.TranscoderInput;
 import org.apache.batik.transcoder.TranscoderOutput;

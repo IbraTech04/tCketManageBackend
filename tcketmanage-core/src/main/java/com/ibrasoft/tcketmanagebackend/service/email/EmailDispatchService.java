@@ -5,7 +5,6 @@ import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobStatus;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
-import com.ibrasoft.tcketmanagebackend.service.EmailService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.email;
 
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;

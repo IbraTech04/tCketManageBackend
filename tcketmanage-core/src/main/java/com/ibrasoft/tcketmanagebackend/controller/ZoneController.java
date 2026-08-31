@@ -3,7 +3,7 @@ package com.ibrasoft.tcketmanagebackend.controller;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateZoneRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ZoneResponse;
-import com.ibrasoft.tcketmanagebackend.service.ZoneService;
+import com.ibrasoft.tcketmanagebackend.service.ticket.ZoneService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

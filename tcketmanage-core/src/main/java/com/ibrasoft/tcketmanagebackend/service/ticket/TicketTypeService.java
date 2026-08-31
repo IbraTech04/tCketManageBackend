@@ -1,4 +1,4 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.ticket;
 
 import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;

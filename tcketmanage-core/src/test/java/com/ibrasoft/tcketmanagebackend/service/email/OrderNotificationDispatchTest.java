@@ -4,7 +4,6 @@ import com.ibrasoft.tcketmanage.autoconfigure.TcketManageProperties;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderStatus;
-import com.ibrasoft.tcketmanagebackend.service.EmailService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

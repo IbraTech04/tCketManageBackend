@@ -1,6 +1,6 @@
 package com.ibrasoft.tcketmanagebackend.config;
 
-import com.ibrasoft.tcketmanagebackend.service.EmailProperties;
+import com.ibrasoft.tcketmanagebackend.properties.EmailProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;

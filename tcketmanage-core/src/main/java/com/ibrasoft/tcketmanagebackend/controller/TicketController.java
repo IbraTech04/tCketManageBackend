@@ -6,8 +6,8 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateTicketRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.EmailJobAccepted;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.TicketResponse;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
-import com.ibrasoft.tcketmanagebackend.service.TicketDeliveryService;
-import com.ibrasoft.tcketmanagebackend.service.TicketService;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketDeliveryService;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketService;
 import com.ibrasoft.tcketmanagebackend.service.order.OrderAccessPolicy;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -50,9 +50,6 @@ public class TicketController {
         Ticket created = ticketService.createTicket(
             request.getFirstName(), request.getLastName(), request.getEmail(),
             request.getEventId(), request.getTicketTypeId());
-        // Opt-in delivery: dispatched asynchronously, so the returned ticket's lastTicketSent is
-        // still null here — delivery is stamped once the email pool sends it. Comp tickets created
-        // without sendEmail stay silent (and "missing") by default.
         if (request.isSendEmail()) {
             ticketDeliveryService.sendAsync(created.getID());
         }

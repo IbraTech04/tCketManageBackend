@@ -1,9 +1,11 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.email;
 
 import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.order.Order;
 import com.ibrasoft.tcketmanagebackend.model.order.OrderNotification;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
+import com.ibrasoft.tcketmanagebackend.properties.EmailProperties;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketGenerationService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;

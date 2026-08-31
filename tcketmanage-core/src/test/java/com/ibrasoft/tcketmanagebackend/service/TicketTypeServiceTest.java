@@ -9,6 +9,7 @@ import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketTypeService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

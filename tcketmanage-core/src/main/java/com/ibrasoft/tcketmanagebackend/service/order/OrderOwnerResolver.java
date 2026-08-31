@@ -1,6 +1,7 @@
 package com.ibrasoft.tcketmanagebackend.service.order;
 
 import com.ibrasoft.tcketmanagebackend.model.dto.request.CreateOrderRequest;
+import com.ibrasoft.tcketmanagebackend.properties.OrderProperties;
 
 /**
  * Host-provided strategy for stamping an order with an opaque <em>owner reference</em> at creation time.

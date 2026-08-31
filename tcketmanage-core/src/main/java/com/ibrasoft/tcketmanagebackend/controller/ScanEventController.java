@@ -6,7 +6,7 @@ import com.ibrasoft.tcketmanagebackend.model.dto.request.ValidateRequest;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanEventResponse;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ScanResult;
 import com.ibrasoft.tcketmanagebackend.model.dto.response.ValidationResult;
-import com.ibrasoft.tcketmanagebackend.service.ScanEventService;
+import com.ibrasoft.tcketmanagebackend.service.ticket.ScanEventService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

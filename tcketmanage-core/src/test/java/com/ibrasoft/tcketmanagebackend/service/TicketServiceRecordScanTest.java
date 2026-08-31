@@ -10,6 +10,8 @@ import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
+import com.ibrasoft.tcketmanagebackend.service.ticket.ScanEventService;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,5 +1,7 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.properties;
 
+import com.ibrasoft.tcketmanagebackend.service.email.LoggingEmailService;
+import com.ibrasoft.tcketmanagebackend.service.email.SmtpEmailService;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

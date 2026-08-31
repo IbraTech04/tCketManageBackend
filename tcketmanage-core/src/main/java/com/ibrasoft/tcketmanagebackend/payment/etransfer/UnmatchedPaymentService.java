@@ -45,11 +45,8 @@ public class UnmatchedPaymentService {
     /**
      * Orders worth offering as candidates: everything that has not already taken someone's money.
      *
-     * <p>{@code EXPIRED} and {@code CANCELLED} are in deliberately — an unmatched payment usually sat
-     * in the queue long enough for the hold to lapse, so the order it belongs to has often already
-     * expired. Excluding them would hide precisely the orders this queue exists to rescue.
-     * {@code PAID} and {@code REFUNDED} are out: a payment pointing at a settled order is a duplicate
-     * to be refunded, not a match to be made.
+     * <p>{@code EXPIRED} and {@code CANCELLED} are included in case an order has expired before
+     * the operator is able to match it.
      */
     private static final Set<OrderStatus> MATCHABLE = EnumSet.of(
             OrderStatus.AWAITING_PAYMENT, OrderStatus.QUARANTINED,
@@ -74,15 +71,7 @@ public class UnmatchedPaymentService {
 
     /**
      * Orders this payment might belong to, best first.
-     *
-     * <p>Ordered by code distance before anything else, because it is the only signal that reflects
-     * what the buyer actually typed; amount and timing merely fail to contradict it. An exact-code
-     * candidate can appear here — that means the code was fine and something else (a wrong amount)
-     * stopped the automatic match, which is worth showing rather than hiding.
-     *
-     * <p>Returns empty rather than a list of weak guesses when nothing scores within
-     * {@link ReferenceCodeMatcher#MAX_USEFUL_DISTANCE}. An empty list is a useful answer: it tells the
-     * operator this payment probably isn't one of ours.
+     * See {@link com.ibrasoft.tcketmanagebackend.payment.etransfer.ReferenceCodeMatcher}
      */
     @Transactional(readOnly = true)
     public List<PaymentMatchSuggestion> suggestionsFor(EtransferReceipt receipt) {
@@ -145,16 +134,7 @@ public class UnmatchedPaymentService {
     }
 
     /**
-     * Attaches the payment to an order and settles it, on an operator's say-so.
-     *
-     * <p>Settlement goes through {@link PaymentConfirmationService#confirmPayment}, not a bespoke
-     * transition, which is what makes the common case correct: these orders have usually expired while
-     * the payment sat in the queue, and that method already re-acquires the seats or falls to
-     * {@code REFUND_PENDING} when they have been resold. Writing a direct {@code setStatus(PAID)} here
-     * would hand out tickets for seats somebody else has bought.
-     *
-     * <p>The receipt is attached first so the audit trail survives even if confirmation then rejects
-     * the transition — the operator's decision is a fact worth keeping either way.
+     * Attaches the payment to an order and settles it
      */
     @Transactional
     public Order link(UUID receiptId, UUID orderId) {

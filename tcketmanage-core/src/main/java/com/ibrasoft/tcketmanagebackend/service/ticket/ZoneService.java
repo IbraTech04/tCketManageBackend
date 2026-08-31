@@ -1,9 +1,10 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.ticket;
 
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
 import com.ibrasoft.tcketmanagebackend.model.dto.request.UpdateZoneRequest;
 import com.ibrasoft.tcketmanagebackend.model.event.Zone;
 import com.ibrasoft.tcketmanagebackend.repository.ZoneRepository;
+import com.ibrasoft.tcketmanagebackend.service.EventService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

@@ -1,4 +1,4 @@
-package com.ibrasoft.tcketmanagebackend.service;
+package com.ibrasoft.tcketmanagebackend.service.ticket;
 
 import com.ibrasoft.tcketmanagebackend.exception.ConflictException;
 import com.ibrasoft.tcketmanagebackend.exception.ResourceNotFoundException;
@@ -14,6 +14,7 @@ import com.ibrasoft.tcketmanagebackend.repository.ScanEventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketRepository;
 import com.ibrasoft.tcketmanagebackend.repository.TicketTypeRepository;
 import com.ibrasoft.tcketmanagebackend.service.order.InventoryService;
+import com.ibrasoft.tcketmanagebackend.utils.Patch;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,13 +57,7 @@ public class TicketService {
             throw new IllegalArgumentException("Ticket type does not belong to the specified event");
         }
 
-        // CAPACITY: a comp ticket consumes a seat like any other, so it takes one through the same
-        // atomic conditional UPDATE ImportService uses (ImportService:110). Reserve BEFORE the row
-        // is written, so a sold-out type throws ConflictException (409) and rolls this transaction
-        // back with no ticket persisted. Rejected alternative: exempting admin-issued tickets from
-        // the reserve "because an operator knows what they're doing" — that is precisely how
-        // reserved_count drifted below the live seat count, silently reselling seats already handed
-        // out and letting the venue oversell.
+        // TODO: Decide if admins can forcibly generate tickets even if an event is at capacity.
         inventoryService.reserve(ticketTypeId, 1);
 
         Ticket ticket = Ticket.builder()
@@ -85,23 +80,12 @@ public class TicketService {
      *         change targets a sold-out type (nothing is committed; the old seat stays held)
      */
     public Ticket updateTicket(UUID id, UpdateTicketRequest request) {
-        // Locked load: status and ticketType read below decide which seats move, so they must be
-        // read under the row lock — see the class javadoc on concurrent edits double-moving a seat.
         Ticket existing = ticketRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
 
-        // Values arrive already trimmed: UpdateTicketRequest normalises on binding so its own
-        // @Email / @Size constraints see the real value rather than one padded with whitespace.
-        // TODO: Update this with the same Patch system as Minbar
-        if (request.getFirstName() != null) {
-            existing.setFirstName(request.getFirstName());
-        }
-        if (request.getLastName() != null) {
-            existing.setLastName(request.getLastName());
-        }
-        if (request.getEmail() != null) {
-            existing.setEmail(request.getEmail());
-        }
+        Patch.apply(request.getFirstName(), existing::setFirstName);
+        Patch.apply(request.getLastName(), existing::setLastName);
+        Patch.apply(request.getEmail(), existing::setEmail);
 
         applyTicketTypeChange(existing, request.getTicketTypeId());
 
@@ -232,11 +216,10 @@ public class TicketService {
     public Ticket revokeTicket(UUID id) {
         Ticket ticket = ticketRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-        TicketStatus status = currentStatus(ticket);
-        switch (status) {
+        switch (ticket.getStatus()) {
             case REVOKED -> { return ticket; }
             case CANCELLED -> throw new ConflictException(
-                    "Cannot revoke ticket " + id + ": it is " + status + " (already voided by a refund)");
+                    "Cannot revoke ticket " + id + ": it is " + ticket.getStatus() + " (already voided by a refund)");
             case ACTIVE -> {
                 releaseSeatIfReserved(ticket);
                 ticket.setStatus(TicketStatus.REVOKED);
@@ -254,18 +237,12 @@ public class TicketService {
     public Ticket reactivateTicket(UUID id) {
         Ticket ticket = ticketRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
-        if (currentStatus(ticket) == TicketStatus.ACTIVE) {
+        if (ticket.getStatus() == TicketStatus.ACTIVE) {
             return ticket;
         }
         reserveSeatIfApplicable(ticket); // throws ConflictException if sold out
         ticket.setStatus(TicketStatus.ACTIVE);
         return ticketRepository.save(ticket);
-    }
-
-    // TODO: Consider removing this... not entirely necessary since the model should be updated instead
-    /** Legacy rows may predate the status column; treat a missing status as {@code ACTIVE}. */
-    private static TicketStatus currentStatus(Ticket ticket) {
-        return ticket.getStatus() == null ? TicketStatus.ACTIVE : ticket.getStatus();
     }
 
     private void releaseSeatIfReserved(Ticket ticket) {

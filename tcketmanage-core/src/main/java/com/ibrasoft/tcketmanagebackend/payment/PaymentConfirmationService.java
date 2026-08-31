@@ -51,7 +51,7 @@ public class PaymentConfirmationService {
         switch (order.getStatus()) {
             case AWAITING_PAYMENT -> { /* normal path: fall through to fulfill below */ }
             case EXPIRED, CANCELLED -> {
-                // Payment landed after the hold was released (common with slow e-transfers). Try to
+                // Payment landed after the hold was released. Try to
                 // re-acquire the seats; if they're gone, the captured funds must be refunded.
                 if (!reReserveSeats(order)) {
                     if (providerRef != null) {

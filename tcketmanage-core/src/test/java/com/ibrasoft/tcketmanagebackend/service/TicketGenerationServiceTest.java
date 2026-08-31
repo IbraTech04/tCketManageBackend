@@ -4,6 +4,7 @@ import com.ibrasoft.tcketmanagebackend.model.event.Event;
 import com.ibrasoft.tcketmanagebackend.model.ticket.Ticket;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketQRData;
 import com.ibrasoft.tcketmanagebackend.model.ticket.TicketType;
+import com.ibrasoft.tcketmanagebackend.service.ticket.TicketGenerationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

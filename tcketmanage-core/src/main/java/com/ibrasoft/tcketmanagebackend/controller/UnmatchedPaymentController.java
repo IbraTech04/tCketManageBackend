@@ -45,10 +45,6 @@ public class UnmatchedPaymentController {
 
     /**
      * Orders this payment might belong to, best first.
-     *
-     * <p>Separate from the list endpoint on purpose: scoring runs every open order against one memo,
-     * so folding it into the listing would make opening the queue quadratic in the number of orders.
-     * The client asks for suggestions when an operator actually opens a row.
      */
     @GetMapping("/{id}/suggestions")
     public List<PaymentMatchSuggestion> suggestions(@PathVariable UUID id) {
@@ -57,11 +53,6 @@ public class UnmatchedPaymentController {
 
     /**
      * Attaches the payment to the order an operator chose and settles it.
-     *
-     * <p>Returns the resulting order rather than the receipt, because the status is the interesting
-     * part: an order whose hold lapsed while the payment sat here comes back {@code PAID} if its seats
-     * were still free and {@code REFUND_PENDING} if they had been resold, and the operator needs to
-     * see which happened.
      */
     @PostMapping("/{id}/link")
     public OrderResponse link(@PathVariable UUID id, @Valid @RequestBody LinkPaymentRequest request) {
@@ -69,7 +60,9 @@ public class UnmatchedPaymentController {
         return OrderResponse.from(order, null, receiptLookup.latestFor(order.getId()));
     }
 
-    /** Writes the payment off as never going to match an order. */
+    /**
+     * Writes the payment off as never going to match an order.
+     */
     @PostMapping("/{id}/dismiss")
     public UnmatchedPaymentResponse dismiss(@PathVariable UUID id,
                                             @Valid @RequestBody(required = false) DismissPaymentRequest request) {
@@ -78,7 +71,9 @@ public class UnmatchedPaymentController {
         return UnmatchedPaymentResponse.from(dismissed);
     }
 
-    /** Puts a dismissed payment back in the queue, for when the write-off was premature. */
+    /**
+     * Puts a dismissed payment back in the queue, for when the write-off was premature.
+     */
     @PostMapping("/{id}/restore")
     public UnmatchedPaymentResponse restore(@PathVariable UUID id) {
         return UnmatchedPaymentResponse.from(unmatchedPayments.restore(id));

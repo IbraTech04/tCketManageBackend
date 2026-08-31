@@ -10,6 +10,7 @@ import com.ibrasoft.tcketmanagebackend.payment.PaymentContext;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentInitiation;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProvider;
 import com.ibrasoft.tcketmanagebackend.payment.PaymentProviderRegistry;
+import com.ibrasoft.tcketmanagebackend.properties.OrderProperties;
 import com.ibrasoft.tcketmanagebackend.repository.EventRepository;
 import com.ibrasoft.tcketmanagebackend.repository.OrderRepository;
 import lombok.AllArgsConstructor;
