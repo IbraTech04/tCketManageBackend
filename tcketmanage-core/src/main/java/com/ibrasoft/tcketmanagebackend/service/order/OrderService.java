@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -117,6 +118,27 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<Order> getOrdersByExternalRef(String externalRef) {
         return orderRepository.findByExternalRef(externalRef);
+    }
+
+    /**
+     * Operator lookup of a single order by the {@code XXXX-XXXX} code a buyer would have quoted.
+     *
+     * <p>Exists for resolving an unmatched payment by hand: when the memo carried nothing the matcher
+     * could work with, an operator identifies the order themselves — from the buyer, the amount, the
+     * timing — and names it by the code they can see in the order book. Without this the manual path
+     * would have to ask for a UUID, which is not a thing anyone has in front of them.
+     *
+     * <p>Normalizes case and surrounding whitespace, since the code is being retyped or pasted.
+     *
+     * @return the order, or empty when no such code exists — a miss is an ordinary answer here, not
+     *         an error, because the operator is being told they got the code wrong
+     */
+    @Transactional(readOnly = true)
+    public Optional<Order> findByReferenceCode(String referenceCode) {
+        if (referenceCode == null || referenceCode.isBlank()) {
+            return Optional.empty();
+        }
+        return orderRepository.findByReferenceCode(referenceCode.trim().toUpperCase());
     }
 
     @Transactional

@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("${tcketmanage.base-path:/tcket}/orders")
@@ -35,23 +37,27 @@ public class OrderController {
     private final RefundService refundService;
     private final EtransferReceiptLookup receiptLookup;
 
-    // Operator/support order book. Provide exactly one of eventId (all orders for an event) or
-    // externalRef (all orders for a host-owned owner ref). A host's own "my orders for the logged-in
-    // user" should NOT use this role-guarded endpoint; it should query OrderService/OrderRepository
-    // directly with the authenticated user's ref.
     @PreAuthorize("@tcketmanageAuthz.canManageEvents()")
     @GetMapping
     public List<OrderResponse> getOrders(@RequestParam(required = false) UUID eventId,
                                          @RequestParam(required = false) String externalRef,
+                                         @RequestParam(required = false) String referenceCode,
                                          @RequestParam(required = false) OrderStatus status) {
-        if ((eventId == null) == (externalRef == null)) {
-            throw new IllegalArgumentException("Provide exactly one of 'eventId' or 'externalRef'");
+        long provided = Stream.of(eventId, externalRef, referenceCode).filter(Objects::nonNull).count();
+        if (provided != 1) {
+            throw new IllegalArgumentException(
+                    "Provide exactly one of 'eventId', 'externalRef' or 'referenceCode'");
         }
         // `status` narrows the event order book (used by the quarantine/refund queues). It is not
-        // offered on the externalRef path, which answers "this owner's orders" in full.
-        List<Order> orders = eventId != null
-                ? orderService.getOrdersByEvent(eventId, status)
-                : orderService.getOrdersByExternalRef(externalRef);
+        // offered on the other paths, which answer a specific question in full.
+        List<Order> orders;
+        if (eventId != null) {
+            orders = orderService.getOrdersByEvent(eventId, status);
+        } else if (externalRef != null) {
+            orders = orderService.getOrdersByExternalRef(externalRef);
+        } else {
+            orders = orderService.findByReferenceCode(referenceCode).map(List::of).orElseGet(List::of);
+        }
         // One query for the whole page's receipts, not one per order.
         Map<UUID, EtransferReceipt> receipts = receiptLookup.latestByOrderId(
                 orders.stream().map(Order::getId).toList());
@@ -67,11 +73,6 @@ public class OrderController {
                 .body(OrderResponse.from(result.order(), result.initiation()));
     }
 
-    // SECURITY: no role guard — buyers self-serve, including guest checkout, so this must stay
-    // reachable unauthenticated. Ownership is enforced per-entity instead: once the order is loaded,
-    // OrderAccessPolicy checks its externalRef against the caller. An order with no owner (guest)
-    // falls back to the capability-URL model, where possession of the unguessable UUID is the
-    // permission. See OrderAccessPolicy for why this cannot be expressed as a URL-level rule.
     @GetMapping("/{id}")
     public OrderResponse getOrder(@PathVariable UUID id) {
         Order order = orderService.getOrder(id);
