@@ -93,9 +93,6 @@ public class TicketService {
     }
 
     public boolean deleteTicket(UUID id) {
-        // Locked load, for the same reason as updateTicket: without it a concurrent type change
-        // could commit between this read and the release, sending the seat back to the type the
-        // ticket no longer sits on.
         Ticket ticket = ticketRepository.findByIdForUpdate(id).orElse(null);
         if (ticket == null) {
             return false;
@@ -123,57 +120,29 @@ public class TicketService {
         if (requestedTypeId == null) {
             return;
         }
-        TicketType current = ticket.getTicketType();
-        UUID currentTypeId = current == null ? null : current.getId();
-        if (requestedTypeId.equals(currentTypeId)) {
-            return; // same type — no inventory movement, and no self-deadlock on one row
+        UUID current = ticket.getTicketType().getId();
+        if (requestedTypeId.equals(current)) {
+            return;
         }
 
         TicketType target = ticketTypeRepository.findById(requestedTypeId)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketType not found"));
 
-        UUID eventId = ticket.getEvent() == null ? null : ticket.getEvent().getId();
-        if (eventId == null || target.getEvent() == null
-                || !target.getEvent().getId().equals(eventId)) {
+        UUID eventId = ticket.getEvent().getId();
+        if (!target.getEvent().getId().equals(eventId)) {
             throw new IllegalArgumentException("Ticket type does not belong to the specified event");
         }
 
-        transferSeat(ticket, currentTypeId, requestedTypeId);
+        transferSeat(ticket, current, requestedTypeId);
         ticket.setTicketType(target);
     }
 
     /**
      * Moves this ticket's single seat from one ticket type to another: release the old, reserve the
      * new.
-     *
-     * <p>Failure semantics are all-or-nothing by rollback. {@link InventoryService#reserve} throws
-     * {@link com.ibrasoft.tcketmanagebackend.exception.ConflictException} when its conditional
-     * UPDATE matches no row, and that exception is deliberately allowed to propagate: it marks this
-     * transaction rollback-only, so a sold-out target undoes the release of the old type as well and
-     * the ticket keeps the seat it already had. Rejected alternative: the explicit compensating
-     * decrement {@link InventoryService#tryReserveAll} uses. That exists because the late-payment
-     * path still has to commit an order status change after a failed reservation; here there is
-     * nothing left to commit, so a rollback is both simpler and strictly safer than hand-rolled
-     * compensation.
-     *
-     * <p>The two atomic UPDATEs are applied in ticket-type-UUID order, per the global lock ordering
-     * in {@code docs/LOCKING.MD} (the same rule {@code InventoryService.tryReserveAll} and
-     * {@code releaseAll} follow with a {@code TreeMap}). Without it, two operators transferring
-     * tickets in opposite directions between the same pair of types would grab each other's row
-     * locks in opposite order and deadlock.
-     *
-     * <p>A {@code CANCELLED} ticket holds no seat, so its type change moves no inventory: there is
-     * nothing to give back on the old type, and reserving on the new one would conjure a seat that
-     * no live ticket occupies.
      */
     private void transferSeat(Ticket ticket, UUID fromTypeId, UUID toTypeId) {
         if (!holdsSeat(ticket)) {
-            return;
-        }
-        if (fromTypeId == null) {
-            // Reachable only for legacy/repaired rows — Ticket.ticketType is @NotNull. The ticket is
-            // live but holds no seat, so this is a plain acquisition with nothing to give back.
-            inventoryService.reserve(toTypeId, 1);
             return;
         }
         if (fromTypeId.compareTo(toTypeId) < 0) {
@@ -186,18 +155,8 @@ public class TicketService {
     }
 
     /**
-     * Whether this ticket is still live and therefore occupies a seat — the precondition for
+     * Whether this ticket is still live and therefore occupies a seat; the precondition for
      * releasing or transferring capacity on its behalf.
-     *
-     * <p>Phrased as "not {@code CANCELLED}" rather than "is {@code ACTIVE}" on purpose. The
-     * {@code status} column is nullable with no default
-     * ({@code V1__create_core_schema.sql}: {@code status varchar(20) CHECK (...)}), and
-     * {@link Ticket}'s {@code @Builder.Default} only applies on the Lombok builder path — the
-     * no-args constructor, {@code @AllArgsConstructor}, and any host-side repair SQL all bypass it.
-     * A {@code NULL}-status row is live and holds a seat, so testing for {@code ACTIVE} would treat
-     * it as holding none: deleting it would shrink capacity forever and a type change would move
-     * the ticket without moving its seat. Between the two failure directions, only "a live ticket
-     * is assumed to hold a seat" is the safe one — the mirror error oversells.
      */
     private boolean holdsSeat(Ticket ticket) {
         return ticket.getStatus() != TicketStatus.CANCELLED;
